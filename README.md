@@ -30,7 +30,6 @@
 ## Установка
 
 ```bash
-cd server
 bun install
 ```
 
@@ -89,28 +88,28 @@ GET /api/items?category=Техника&sort=name&order=asc&page=1&per_page=10
 ## Структура проекта
 
 ```
-server/
+.
 ├── package.json
 ├── tsconfig.json
 ├── .env.example
 ├── README.md
 ├── data/                   # файл SQLite (создаётся автоматически)
-└── src/
-    ├── index.ts            # точка входа: Elysia-приложение
-    ├── config.ts           # конфигурация из .env
-    ├── db/
-    │   ├── client.ts       # подключение bun:sqlite (singleton)
-    │   ├── schema.ts       # DDL и типы
-    │   └── seed.ts         # тестовые данные
-    ├── services/
-    │   └── itemsService.ts # бизнес-логика (SQL-запросы)
-    ├── routes/
-    │   ├── items.ts        # CRUD /items
-    │   ├── stats.ts        # /stats
-    │   └── meta.ts         # /categories, /locations
-    └── utils/
-        ├── pagination.ts
-        └── httpErrors.ts
+├── src/
+│   ├── index.ts            # точка входа: Elysia-приложение
+│   ├── config.ts           # конфигурация из .env
+│   ├── db/
+│   │   ├── client.ts       # подключение bun:sqlite (singleton)
+│   │   ├── schema.ts       # DDL и типы
+│   │   └── seed.ts         # тестовые данные
+│   ├── services/
+│   │   └── itemsService.ts # бизнес-логика (SQL-запросы)
+│   ├── routes/
+│   │   ├── items.ts        # CRUD /items
+│   │   ├── stats.ts        # /stats
+│   │   └── meta.ts         # /categories, /locations
+│   └── utils/
+│       ├── pagination.ts
+│       └── httpErrors.ts
 └── public/                 # фронтенд (vanilla JS + Bootstrap)
     ├── index.html
     ├── app.js

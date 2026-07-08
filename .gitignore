@@ -17,9 +17,15 @@ data/database.db
 data/database.db-journal
 data/database.db-shm
 data/database.db-wal
-data/*.db-journal
-data/*.db-shm
-data/*.db-wal
+**/database.db
+**/database.db-journal
+**/database.db-shm
+**/database.db-wal
+
+# IDE / агентские артефакты
+.zcode/
+.vscode/
+.idea/
 
 # Логи
 *.log
