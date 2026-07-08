@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Редактировать товар{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header bg-warning">
+                <h4 class="mb-0"><i class="fas fa-edit"></i> Редактирование товара #{{ item.id }}</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('edit_item', id=item.id) }}">
+                    <div class="row g-2 g-sm-3">
+                        <div class="col-12">
+                            <label for="name" class="form-label">Название товара <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   value="{{ item.name }}" required>
+                        </div>
+                        
+                        <div class="col-12 col-sm-6">
+                            <label for="category" class="form-label">Категория <span class="text-danger">*</span></label>
+                            <select class="form-select" id="category" name="category" required>
+                                <option value="Техника" {% if item.category == 'Техника' %}selected{% endif %}>Техника</option>
+                                <option value="Мебель" {% if item.category == 'Мебель' %}selected{% endif %}>Мебель</option>
+                                <option value="Расходники" {% if item.category == 'Расходники' %}selected{% endif %}>Расходники</option>
+                                <option value="Канцелярия" {% if item.category == 'Канцелярия' %}selected{% endif %}>Канцелярия</option>
+                                <option value="Другое" {% if item.category == 'Другое' %}selected{% endif %}>Другое</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-6 col-sm-3">
+                            <label for="quantity" class="form-label">Кол-во <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="quantity" name="quantity" 
+                                   value="{{ item.quantity }}" min="0" step="1" required>
+                        </div>
+                        
+                        <div class="col-6 col-sm-3">
+                            <label for="location" class="form-label">Место <span class="text-danger">*</span></label>
+                            <select class="form-select" id="location" name="location" required>
+                                <option value="Склад А" {% if item.location == 'Склад А' %}selected{% endif %}>Склад А</option>
+                                <option value="Склад Б" {% if item.location == 'Склад Б' %}selected{% endif %}>Склад Б</option>
+                                <option value="Офис 101" {% if item.location == 'Офис 101' %}selected{% endif %}>Офис 101</option>
+                                <option value="Офис 202" {% if item.location == 'Офис 202' %}selected{% endif %}>Офис 202</option>
+                                <option value="Серверная" {% if item.location == 'Серверная' %}selected{% endif %}>Серверная</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label for="description" class="form-label">Описание</label>
+                            <textarea class="form-control" id="description" name="description" rows="3">{{ item.description }}</textarea>
+                        </div>
+                        
+                        <div class="col-12">
+                            <hr>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="submit" class="btn btn-warning flex-grow-1 flex-sm-grow-0">
+                                    <i class="fas fa-save"></i> Обновить
+                                </button>
+                                <a href="{{ url_for('index') }}" class="btn btn-secondary flex-grow-1 flex-sm-grow-0">
+                                    <i class="fas fa-times"></i> Отмена
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
