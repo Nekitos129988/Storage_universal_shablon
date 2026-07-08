@@ -52,11 +52,11 @@ function buildQuery(extra = {}) {
     return params.toString();
 }
 
-// --- Бейдж количества (цвет по остатку, как в оригинале) --------------------
+// --- Бейдж количества (приглушённые статусные тона) ------------------------
 function quantityBadge(q) {
-    let cls = 'bg-success';
-    if (q <= 5) cls = 'bg-danger';
-    else if (q <= 20) cls = 'bg-warning text-dark';
+    let cls = 'badge-ok';
+    if (q <= 5) cls = 'badge-danger';
+    else if (q <= 20) cls = 'badge-warn';
     return `<span class="badge ${cls}">${q}</span>`;
 }
 
@@ -82,7 +82,7 @@ function renderListPage(data, meta) {
         `#/?${buildQuery({ sort: field, order: state.sort === field && state.order === 'asc' ? 'desc' : 'asc', page: 1 })}`;
 
     const catBadges = stats.categories
-        .map((c) => `<span class="badge bg-info text-dark" style="font-size:0.7rem;">${escapeHtml(c.category)}: ${c.total_quantity}</span>`)
+        .map((c) => `<span class="badge badge-soft">${escapeHtml(c.category)} · ${c.total_quantity}</span>`)
         .join(' ');
 
     const catOptions = meta.categories.map((c) => `<option value="${escapeHtml(c)}" ${state.category === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('');
@@ -91,18 +91,18 @@ function renderListPage(data, meta) {
     const rows = items.length
         ? items.map((it) => `
             <tr>
-                <td>${it.id}</td>
+                <td class="text-muted">${it.id}</td>
                 <td><strong>${escapeHtml(it.name)}</strong>${it.description ? `<br><small class="text-muted d-none d-md-inline">${escapeHtml(it.description)}</small>` : ''}</td>
-                <td class="d-none d-sm-table-cell"><span class="badge bg-secondary">${escapeHtml(it.category)}</span></td>
+                <td class="d-none d-sm-table-cell"><span class="badge badge-soft">${escapeHtml(it.category)}</span></td>
                 <td>${quantityBadge(it.quantity)}</td>
                 <td class="d-none d-md-table-cell">${escapeHtml(it.location)}</td>
-                <td class="d-none d-lg-table-cell">${escapeHtml(it.date_added)}</td>
+                <td class="d-none d-lg-table-cell text-muted">${escapeHtml(it.date_added)}</td>
                 <td class="text-center" style="white-space:nowrap;">
-                    <a href="#/edit/${it.id}" class="btn btn-sm btn-outline-primary btn-action"><i class="fas fa-edit"></i></a>
-                    <button class="btn btn-sm btn-outline-danger btn-action" data-del="${it.id}"><i class="fas fa-trash"></i></button>
+                    <a href="#/edit/${it.id}" class="btn btn-sm btn-action" title="Редактировать"><i class="fas fa-pen"></i></a>
+                    <button class="btn btn-sm btn-action btn-danger" data-del="${it.id}" title="Удалить"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>`).join('')
-        : `<tr><td colspan="7" class="text-center py-4 text-muted"><i class="fas fa-inbox fa-2x d-block mb-2"></i>Нет товаров, соответствующих фильтрам</td></tr>`;
+        : `<tr><td colspan="7" class="text-center py-5 text-muted"><i class="fas fa-inbox fa-2x d-block mb-2"></i>Нет товаров, соответствующих фильтрам</td></tr>`;
 
     // Пагинация
     let pagination = '';
@@ -117,47 +117,48 @@ function renderListPage(data, meta) {
 
     $('#app').innerHTML = `
     <div class="row"><div class="col-12">
-        <h1 class="mb-3 mb-sm-4 d-flex align-items-center flex-wrap">
-            <i class="fas fa-boxes me-2"></i>
-            <span class="d-none d-sm-inline">Список товаров</span>
-            <span class="d-inline d-sm-none">Товары</span>
-            <span class="badge bg-secondary fs-6 ms-2">${p.total_items} шт.</span>
-        </h1>
+        <div class="d-flex align-items-center flex-wrap mb-3 mb-sm-4">
+            <h1 class="page-title">
+                <span class="d-none d-sm-inline">Список товаров</span>
+                <span class="d-inline d-sm-none">Товары</span>
+            </h1>
+            <span class="count-pill ms-2">${p.total_items} шт.</span>
+        </div>
         <div class="row mb-3 mb-sm-4 g-2 g-sm-3">
-            <div class="col-6 col-md-3"><div class="stats-card"><h6 class="text-muted small">Всего позиций</h6><h3 class="mb-0">${stats.total_items}</h3></div></div>
-            <div class="col-6 col-md-3"><div class="stats-card" style="border-left-color:#28a745;"><h6 class="text-muted small">Всего единиц</h6><h3 class="mb-0">${stats.total_quantity}</h3></div></div>
-            <div class="col-12 col-md-6"><div class="stats-card" style="border-left-color:#ffc107;"><h6 class="text-muted small">По категориям</h6><div class="d-flex flex-wrap gap-1 gap-sm-2">${catBadges}</div></div></div>
+            <div class="col-6 col-md-3"><div class="stats-card"><span class="stat-accent"></span><p class="stat-label">Всего позиций</p><p class="stat-value">${stats.total_items}</p></div></div>
+            <div class="col-6 col-md-3"><div class="stats-card"><span class="stat-accent" style="background:var(--ok)"></span><p class="stat-label">Всего единиц</p><p class="stat-value">${stats.total_quantity}</p></div></div>
+            <div class="col-12 col-md-6"><div class="stats-card"><span class="stat-accent" style="background:var(--warn)"></span><p class="stat-label">По категориям</p><div class="d-flex flex-wrap gap-1 gap-sm-2">${catBadges}</div></div></div>
         </div>
         <div class="filter-section">
-            <form id="filter-form" class="row g-2 g-sm-3">
-                <div class="col-12 col-sm-6 col-md-3"><label class="form-label small">Категория</label>
+            <form id="filter-form" class="row g-2 g-sm-3 align-items-end">
+                <div class="col-12 col-sm-6 col-md-3"><label class="form-label">Категория</label>
                     <select name="category" class="form-select form-select-sm"><option value="">Все</option>${catOptions}</select></div>
-                <div class="col-12 col-sm-6 col-md-3"><label class="form-label small">Местоположение</label>
+                <div class="col-12 col-sm-6 col-md-3"><label class="form-label">Местоположение</label>
                     <select name="location" class="form-select form-select-sm"><option value="">Все</option>${locOptions}</select></div>
-                <div class="col-6 col-sm-3 col-md-2"><label class="form-label small">Мин. кол-во</label>
+                <div class="col-6 col-sm-3 col-md-2"><label class="form-label">Мин. кол-во</label>
                     <input type="number" name="min_quantity" class="form-control form-control-sm" value="${escapeHtml(state.min_quantity)}" min="0" placeholder="0"></div>
-                <div class="col-12 col-sm-6 col-md-3"><label class="form-label small">Поиск</label>
+                <div class="col-12 col-sm-6 col-md-3"><label class="form-label">Поиск</label>
                     <input type="text" name="search" class="form-control form-control-sm" placeholder="Название или описание..." value="${escapeHtml(state.search)}"></div>
-                <div class="col-6 col-sm-3 col-md-1 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary btn-sm w-100"><i class="fas fa-filter"></i></button></div>
+                <div class="col-6 col-sm-3 col-md-1 d-flex">
+                    <button type="submit" class="btn btn-primary btn-sm w-100" title="Применить"><i class="fas fa-filter"></i></button></div>
             </form>
         </div>
         <div class="card"><div class="card-body p-0"><div class="table-responsive">
-            <table class="table table-hover table-striped mb-0" style="min-width:600px;">
-                <thead class="table-primary"><tr>
-                    <th style="width:40px;">#</th>
-                    <th><a href="${sortHref('name')}" class="text-decoration-none text-dark">Название ${sortArrow('name')}</a></th>
-                    <th class="d-none d-sm-table-cell"><a href="${sortHref('category')}" class="text-decoration-none text-dark">Категория ${sortArrow('category')}</a></th>
-                    <th><a href="${sortHref('quantity')}" class="text-decoration-none text-dark">Кол-во ${sortArrow('quantity')}</a></th>
-                    <th class="d-none d-md-table-cell"><a href="${sortHref('location')}" class="text-decoration-none text-dark">Местоположение ${sortArrow('location')}</a></th>
-                    <th class="d-none d-lg-table-cell"><a href="${sortHref('date_added')}" class="text-decoration-none text-dark">Дата ${sortArrow('date_added')}</a></th>
-                    <th class="text-center" style="width:80px;">Действия</th>
+            <table class="table table-hover mb-0" style="min-width:600px;">
+                <thead><tr>
+                    <th style="width:44px;">#</th>
+                    <th><a href="${sortHref('name')}" class="text-decoration-none text-reset">Название ${sortArrow('name')}</a></th>
+                    <th class="d-none d-sm-table-cell"><a href="${sortHref('category')}" class="text-decoration-none text-reset">Категория ${sortArrow('category')}</a></th>
+                    <th><a href="${sortHref('quantity')}" class="text-decoration-none text-reset">Кол-во ${sortArrow('quantity')}</a></th>
+                    <th class="d-none d-md-table-cell"><a href="${sortHref('location')}" class="text-decoration-none text-reset">Местоположение ${sortArrow('location')}</a></th>
+                    <th class="d-none d-lg-table-cell"><a href="${sortHref('date_added')}" class="text-decoration-none text-reset">Дата ${sortArrow('date_added')}</a></th>
+                    <th class="text-center" style="width:90px;">Действия</th>
                 </tr></thead>
                 <tbody>${rows}</tbody>
             </table>
         </div></div></div>
         ${pagination}
-        <div class="text-muted small mt-2">Показано ${items.length} из ${p.total_items} записей</div>
+        <div class="text-muted small mt-3">Показано ${items.length} из ${p.total_items} записей</div>
     </div></div>`;
 
     // Обработчик формы фильтров
@@ -199,30 +200,34 @@ async function onDelete(id) {
 function renderForm(mode, item = null) {
     const isEdit = mode === 'edit';
     const heading = isEdit ? `Редактирование товара #${item.id}` : 'Добавление товара';
-    const headerCls = isEdit ? 'bg-warning' : 'bg-primary text-white';
-    const btnCls = isEdit ? 'btn-warning' : 'btn-success';
+    const icon = isEdit ? 'pen' : 'plus';
     const btnText = isEdit ? 'Обновить' : 'Сохранить';
 
     $('#app').innerHTML = `
     <div class="row justify-content-center"><div class="col-12 col-md-8 col-lg-6">
+        <div class="mb-3 mb-sm-4">
+            <a href="#/" class="text-decoration-none small" style="color:var(--text-muted)">
+                <i class="fas fa-arrow-left me-1"></i>К списку товаров
+            </a>
+            <h1 class="page-title mt-2"><i class="fas fa-${icon} me-1" style="color:var(--accent)"></i>${escapeHtml(heading)}</h1>
+        </div>
         <div class="card">
-            <div class="card-header ${headerCls}"><h4 class="mb-0"><i class="fas fa-${isEdit ? 'edit' : 'plus-circle'}"></i> ${heading}</h4></div>
             <div class="card-body">
                 <form id="item-form">
                     <div class="row g-2 g-sm-3">
-                        <div class="col-12"><label class="form-label">Название товара <span class="text-danger">*</span></label>
+                        <div class="col-12"><label class="form-label">Название товара <span class="req">*</span></label>
                             <input type="text" class="form-control" name="name" value="${item ? escapeHtml(item.name) : ''}" required></div>
-                        <div class="col-12 col-sm-6"><label class="form-label">Категория <span class="text-danger">*</span></label>
+                        <div class="col-12 col-sm-6"><label class="form-label">Категория <span class="req">*</span></label>
                             <select class="form-select" name="category" required>${categoryOptions(item?.category)}</select></div>
-                        <div class="col-6 col-sm-3"><label class="form-label">Кол-во <span class="text-danger">*</span></label>
+                        <div class="col-6 col-sm-3"><label class="form-label">Кол-во <span class="req">*</span></label>
                             <input type="number" class="form-control" name="quantity" value="${item ? item.quantity : ''}" min="0" step="1" required></div>
-                        <div class="col-6 col-sm-3"><label class="form-label">Место <span class="text-danger">*</span></label>
+                        <div class="col-6 col-sm-3"><label class="form-label">Место <span class="req">*</span></label>
                             <select class="form-select" name="location" required>${locationOptions(item?.location)}</select></div>
                         <div class="col-12"><label class="form-label">Описание</label>
                             <textarea class="form-control" name="description" rows="3" placeholder="Дополнительная информация...">${item ? escapeHtml(item.description || '') : ''}</textarea></div>
-                        <div class="col-12"><hr><div class="d-flex flex-wrap gap-2">
-                            <button type="submit" class="btn ${btnCls} flex-grow-1 flex-sm-grow-0"><i class="fas fa-save"></i> ${btnText}</button>
-                            <a href="#/" class="btn btn-secondary flex-grow-1 flex-sm-grow-0"><i class="fas fa-times"></i> Отмена</a>
+                        <div class="col-12"><hr style="border-color:var(--border)"><div class="d-flex flex-wrap gap-2">
+                            <button type="submit" class="btn btn-save"><i class="fas fa-check me-1"></i> ${btnText}</button>
+                            <a href="#/" class="btn btn-outline-secondary"><i class="fas fa-times me-1"></i> Отмена</a>
                         </div></div>
                     </div>
                 </form>

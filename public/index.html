@@ -9,10 +9,10 @@
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <nav class="navbar navbar-expand-lg sticky-top">
         <div class="container">
             <a class="navbar-brand" href="/">
-                <i class="fas fa-boxes"></i>
+                <span class="brand-mark"><i class="fas fa-warehouse"></i></span>
                 <span class="d-none d-sm-inline">Инвентарь офиса</span>
                 <span class="d-inline d-sm-none">Инвентарь</span>
             </a>
@@ -30,7 +30,7 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="#/add" id="nav-add">
-                            <i class="fas fa-plus-circle"></i>
+                            <i class="fas fa-plus"></i>
                             <span class="d-none d-sm-inline">Добавить товар</span>
                             <span class="d-inline d-sm-none">Добавить</span>
                         </a>
@@ -50,13 +50,13 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-exclamation-triangle text-danger"></i> Подтверждение</h5>
+                    <h5 class="modal-title"><i class="fas fa-trash-alt me-2"></i>Удаление товара</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">Вы уверены, что хотите удалить этот товар?</div>
+                <div class="modal-body text-muted">Вы уверены, что хотите удалить этот товар? Действие нельзя отменить.</div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                    <button type="button" class="btn btn-danger" id="confirm-delete"><i class="fas fa-trash"></i> Удалить</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-save" id="confirm-delete" style="background:var(--danger);border-color:var(--danger);"><i class="fas fa-trash me-1"></i> Удалить</button>
                 </div>
             </div>
         </div>
