@@ -1,0 +1,30 @@
+# Зависимости
+node_modules/
+bun.lock
+bun.lockb
+
+# Сборка
+dist/
+build/
+
+# Окружение
+.env
+.env.local
+.env.*.local
+
+# База данных (рабочая копия генерируется из шаблона/сидом)
+data/database.db
+data/database.db-journal
+data/database.db-shm
+data/database.db-wal
+data/*.db-journal
+data/*.db-shm
+data/*.db-wal
+
+# Логи
+*.log
+logs/
+
+# ОС
+.DS_Store
+Thumbs.db
