@@ -33,6 +33,7 @@ import { metaRoutes } from './routes/meta.ts';
 import { statsRoutes } from './routes/stats.ts';
 import { authRoutes } from './routes/auth.ts';
 import { adminRoutes } from './routes/admin.ts';
+import { globalRateLimit } from './plugins/rateLimit.ts';
 import { bootstrapAdminIfEmpty } from './services/authService.ts';
 import { HttpError } from './utils/httpErrors.ts';
 
@@ -73,6 +74,8 @@ const app = new Elysia()
 	)
 	// Документация API: http://host:port/swagger
 	.use(swagger({ path: '/swagger', documentation: { info: { title: 'Инвентарь офиса API', version: '1.0.0' } } }))
+		// Мягкая глобальная защита REST API от злоупотреблений (только для /api/*).
+		.use(globalRateLimit)
 	// Healthcheck
 	.get('/health', () => ({ status: 'ok', timestamp: new Date().toISOString() }), {
 		detail: { tags: ['Служебное'], summary: 'Проверка работоспособности' },

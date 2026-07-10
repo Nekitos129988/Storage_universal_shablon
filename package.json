@@ -9,9 +9,10 @@
     "seed": "bun run src/db/seed.ts"
   },
   "dependencies": {
-    "elysia": "^1.4.0",
     "@elysiajs/cors": "^1.1.0",
-    "@elysiajs/swagger": "^1.1.0"
+    "@elysiajs/swagger": "^1.1.0",
+    "elysia": "^1.4.0",
+    "elysia-rate-limit": "^4.6.2"
   },
   "devDependencies": {
     "@types/bun": "latest"

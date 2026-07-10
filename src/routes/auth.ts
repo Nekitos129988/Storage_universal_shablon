@@ -9,6 +9,7 @@
  */
 import { Elysia, t } from 'elysia';
 import { authPlugin } from '../plugins/auth.ts';
+import { loginRateLimit } from '../plugins/rateLimit.ts';
 import { login, register } from '../services/authService.ts';
 import { config } from '../config.ts';
 
@@ -25,7 +26,8 @@ function sessionCookieAttrs() {
 export const authRoutes = new Elysia()
 	.use(authPlugin)
 	.group('/auth', (app) =>
-		app
+		// Защита от перебора: жёсткий лимит на login/register (me/logout пропускаются через skip).
+		app.use(loginRateLimit)
 			// POST /auth/register — публичная регистрация (роль 'viewer', статус 'pending').
 			// Авто-входа НЕТ: учётная запись ждёт подтверждения администратора.
 			.post(

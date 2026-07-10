@@ -180,8 +180,9 @@ export async function login(input: LoginInput): Promise<{ user: PublicUser; toke
 // --- Bootstrap первого администратора ---------------------------------------
 
 /**
- * Если таблица users пуста, создаёт учётную запись администратора по умолчанию.
- * Реквизиты выводятся в консоль, чтобы их было видно при первом старте.
+ * Если таблица users пуста, создаёт учётную запись администратора.
+ * Логин и пароль берутся из конфигурации (env ADMIN_USERNAME / ADMIN_PASSWORD);
+ * в dev без ADMIN_PASSWORD пароль генерируется случайно и выводится в консоль.
  * Возвращает true, если администратор был создан.
  */
 export async function bootstrapAdminIfEmpty(): Promise<boolean> {
@@ -189,17 +190,22 @@ export async function bootstrapAdminIfEmpty(): Promise<boolean> {
 	const { n } = db.prepare('SELECT COUNT(*) as n FROM users').get() as { n: number };
 	if (n > 0) return false;
 
-	const username = 'admin';
-	const password = 'admin123';
-	const passwordHash = await Bun.password.hash(password);
+	const { adminUsername, adminPassword, adminPasswordGenerated } = config;
+	const passwordHash = await Bun.password.hash(adminPassword);
 	db.prepare(
 		`INSERT INTO users (username, password_hash, role, status) VALUES ($username, $hash, 'admin', 'active')`,
-	).run({ $username: username, $hash: passwordHash });
+	).run({ $username: adminUsername, $hash: passwordHash });
 
 	console.warn('───────────────────────────────────────────────');
-	console.warn('  ⚠️  Создан администратор по умолчанию');
-	console.warn(`     Логин: ${username}`);
-	console.warn(`     Пароль: ${password}`);
+	console.warn('  ⚠️  Создан администратор');
+	console.warn(`     Логин: ${adminUsername}`);
+	if (adminPasswordGenerated) {
+		// dev: пароль сгенерирован случайно — покажем, чтобы можно было войти и сразу сменить.
+		console.warn(`     Пароль: ${adminPassword} (сгенерирован случайно)`);
+	} else {
+		// prod или заданный явно: значение не выводим.
+		console.warn('     Пароль: задан через ADMIN_PASSWORD');
+	}
 	console.warn('     Смените пароль после первого входа!');
 	console.warn('───────────────────────────────────────────────');
 	return true;

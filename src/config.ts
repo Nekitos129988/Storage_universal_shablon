@@ -32,6 +32,22 @@ function resolveSessionSecret(): string {
 	return 'dev-only-insecure-secret-' + randomBytes(8).toString('hex');
 }
 
+/**
+ * Учётные данные первого администратора (создаётся при пустой БД).
+ * В production ADMIN_PASSWORD обязателен; в dev, если не задан — генерируется
+ * случайный (выводится в консоль при первом старте, чтобы не было фиксированного слабого пароля).
+ * `generated` показывает, был ли пароль сгенерирован (нужно для логирования).
+ */
+function resolveAdminCredentials(): { username: string; password: string; generated: boolean } {
+	const username = env.ADMIN_USERNAME?.trim() || 'admin';
+	const pwd = env.ADMIN_PASSWORD?.trim();
+	if (pwd) return { username, password: pwd, generated: false };
+	if (isProd) throw new Error('Не задана обязательная переменная окружения: ADMIN_PASSWORD');
+	return { username, password: randomBytes(16).toString('hex'), generated: true };
+}
+
+const adminCredentials = resolveAdminCredentials();
+
 export const config = {
 	port: parseInt(env.PORT ?? '3000', 3000, 1, 65535),
 	host,
@@ -46,4 +62,13 @@ export const config = {
 	sessionSecret: resolveSessionSecret(),
 	sessionTtlHours: parseInt(env.SESSION_TTL_HOURS ?? '12', 12, 1, 24 * 30),
 	cookieSecure: isProd && host !== '127.0.0.1' && host !== 'localhost',
+	// Первый администратор (создаётся при пустой БД)
+	adminUsername: adminCredentials.username,
+	adminPassword: adminCredentials.password,
+	adminPasswordGenerated: adminCredentials.generated,
+	// Ограничение частоты запросов (rate-limit)
+	rateLimitLoginMax: parseInt(env.RATE_LOGIN_MAX ?? '5', 5, 1, 1000),
+	rateLimitLoginWindowMs: parseInt(env.RATE_LOGIN_WINDOW_SEC ?? '60', 60, 1, 3600) * 1000,
+	rateLimitGlobalMax: parseInt(env.RATE_GLOBAL_MAX ?? '300', 300, 1, 100_000),
+	rateLimitGlobalWindowMs: parseInt(env.RATE_GLOBAL_WINDOW_SEC ?? '60', 60, 1, 3600) * 1000,
 } as const;
