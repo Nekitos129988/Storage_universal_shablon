@@ -41,6 +41,36 @@ CREATE INDEX IF NOT EXISTS idx_items_location ON items(location);
 CREATE INDEX IF NOT EXISTS idx_items_date_added ON items(date_added);
 `;
 
+/**
+ * Полнотекстовый индекс FTS5 над items (external content table).
+ * tokenize='unicode61 remove_diacritics 1' корректно токенизирует и приводит
+ * к нижнему регистру кириллицу (решает проблему, что встроенная LOWER() — ASCII-only).
+ */
+export const CREATE_ITEMS_FTS_SQL = `
+CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
+    name, description,
+    content='items', content_rowid='id',
+    tokenize = 'unicode61 remove_diacritics 1'
+);
+`;
+
+/**
+ * Триггеры синхронизации items_fts с items (external-content таблица
+ * не обновляется автоматически при изменении источника).
+ */
+export const CREATE_ITEMS_FTS_TRIGGERS_SQL = `
+CREATE TRIGGER IF NOT EXISTS items_fts_ai AFTER INSERT ON items BEGIN
+    INSERT INTO items_fts(rowid, name, description) VALUES (new.id, new.name, new.description);
+END;
+CREATE TRIGGER IF NOT EXISTS items_fts_ad AFTER DELETE ON items BEGIN
+    INSERT INTO items_fts(items_fts, rowid, name, description) VALUES ('delete', old.id, old.name, old.description);
+END;
+CREATE TRIGGER IF NOT EXISTS items_fts_au AFTER UPDATE ON items BEGIN
+    INSERT INTO items_fts(items_fts, rowid, name, description) VALUES ('delete', old.id, old.name, old.description);
+    INSERT INTO items_fts(rowid, name, description) VALUES (new.id, new.name, new.description);
+END;
+`;
+
 // --- Пользователи и роли -----------------------------------------------------
 
 /** Роли пользователей. */

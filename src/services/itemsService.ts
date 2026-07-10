@@ -56,6 +56,21 @@ function resolveSort(sort?: string, order?: string): { field: string; direction:
 }
 
 /**
+ * Превращает поисковую строку в безопасный FTS5-запрос: разбивает по пробелам,
+ * каждое слово оборачивает в кавычки (внутренние кавычки удваиваются) и добавляет
+ * суффикс '*' для prefix-матча. Токены объединяются неявным AND.
+ * Пример: 'ноутбук lenovo' → '"ноутбук"* "lenovo"*'.
+ * Возвращает пустую строку, если полезных токенов нет.
+ */
+function buildFtsQuery(search: string): string {
+	return search
+		.split(/\s+/)
+		.filter(Boolean)
+		.map((tok) => `"${tok.replace(/"/g, '""')}"*`)
+		.join(' ');
+}
+
+/**
  * Список товаров с фильтрами, сортировкой и пагинацией — всё на уровне SQL.
  */
 export function listItems(query: ItemListQuery): ItemListResult {
@@ -86,32 +101,25 @@ export function listItems(query: ItemListQuery): ItemListResult {
 		}
 	}
 
-	const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 	const search = query.search?.trim() ?? '';
 
-	// Текстовый поиск выполняем в JS, а не в SQL: встроенная SQLite LOWER() работает
-	// только с ASCII и не приводит кириллицу к нижнему регистру, из-за чего поиск по
-	// русским словам с разным регистром ничего не находил. String.toLowerCase()
-	// корректно обрабатывает Unicode.
-	if (search) {
-		const all = db
-			.prepare(`SELECT * FROM items ${whereSql} ORDER BY ${field} ${direction}`)
-			.all(params) as Item[];
-		const q = search.toLowerCase();
-		const filtered = all.filter(
-			(it) => it.name.toLowerCase().includes(q) || (it.description ?? '').toLowerCase().includes(q),
-		);
-		const items = filtered.slice(offset, offset + perPage);
-		return {
-			items,
-			pagination: buildPagination(page, perPage, filtered.length),
-			stats: getStats(),
-		};
+	// Текстовый поиск — через полнотекстовый индекс items_fts (FTS5, unicode61):
+	// корректно работает с кириллицей и регистром, в отличие от встроенной LOWER().
+	// При наличии поиска добавляем MATCH-условие и JOIN к items_fts; фильтры
+	// (category/location/min_quantity) объединяются тем же WHERE.
+	let fromClause = 'items';
+	const fts = search ? buildFtsQuery(search) : '';
+	if (fts) {
+		conditions.push('items_fts MATCH $fts');
+		params.$fts = fts;
+		fromClause = 'items JOIN items_fts ON items_fts.rowid = items.id';
 	}
+	const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
 	// Поле сортировки берётся из whitelist, поэтому безопасно подставлять в SQL напрямую.
-	const itemsSql = `SELECT * FROM items ${whereSql} ORDER BY ${field} ${direction} LIMIT $limit OFFSET $offset`;
-	const totalSql = `SELECT COUNT(*) as n FROM items ${whereSql}`;
+	// Квалифицируем items.field, чтобы избежать неоднозначности при JOIN с items_fts.
+	const itemsSql = `SELECT items.* FROM ${fromClause} ${whereSql} ORDER BY items.${field} ${direction} LIMIT $limit OFFSET $offset`;
+	const totalSql = `SELECT COUNT(*) as n FROM ${fromClause} ${whereSql}`;
 
 	const items = db.prepare(itemsSql).all({ ...params, $limit: perPage, $offset: offset }) as Item[];
 	const totalRow = db.prepare(totalSql).get(params) as { n: number };

@@ -9,7 +9,14 @@ import { Database } from 'bun:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { config } from '../config.ts';
-import { CREATE_INDEXES_SQL, CREATE_TABLE_SQL, CREATE_USERS_INDEX_SQL, CREATE_USERS_TABLE_SQL } from './schema.ts';
+import {
+	CREATE_INDEXES_SQL,
+	CREATE_ITEMS_FTS_SQL,
+	CREATE_ITEMS_FTS_TRIGGERS_SQL,
+	CREATE_TABLE_SQL,
+	CREATE_USERS_INDEX_SQL,
+	CREATE_USERS_TABLE_SQL,
+} from './schema.ts';
 
 let dbInstance: Database | null = null;
 
@@ -32,8 +39,18 @@ export function getDb(): Database {
 	db.exec('PRAGMA foreign_keys = ON;');
 	db.exec(CREATE_TABLE_SQL);
 	db.exec(CREATE_INDEXES_SQL);
+	db.exec(CREATE_ITEMS_FTS_SQL);
+	db.exec(CREATE_ITEMS_FTS_TRIGGERS_SQL);
 	db.exec(CREATE_USERS_TABLE_SQL);
 	db.exec(CREATE_USERS_INDEX_SQL);
+
+	// Миграция FTS: для уже существующей БД (items заполнен, а items_fts пуст)
+	// перестраиваем полнотекстовый индекс из источника. На свежей БД здесь 0 строк.
+	const { ftsN } = db.prepare('SELECT COUNT(*) as ftsN FROM items_fts').get() as { ftsN: number };
+	const { itemsN } = db.prepare('SELECT COUNT(*) as itemsN FROM items').get() as { itemsN: number };
+	if (itemsN > 0 && ftsN === 0) {
+		db.exec("INSERT INTO items_fts(items_fts) VALUES ('rebuild')");
+	}
 
 	// Миграция: для уже существующей БД CREATE TABLE IF NOT EXISTS не добавит
 	// колонку status — проверяем и при необходимости ALTER.
