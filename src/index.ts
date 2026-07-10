@@ -31,6 +31,9 @@ import { seedIfEmpty } from './db/seed.ts';
 import { itemsRoutes } from './routes/items.ts';
 import { metaRoutes } from './routes/meta.ts';
 import { statsRoutes } from './routes/stats.ts';
+import { authRoutes } from './routes/auth.ts';
+import { adminRoutes } from './routes/admin.ts';
+import { bootstrapAdminIfEmpty } from './services/authService.ts';
 import { HttpError } from './utils/httpErrors.ts';
 
 // --- Инициализация БД при старте -------------------------------------------
@@ -75,7 +78,14 @@ const app = new Elysia()
 		detail: { tags: ['Служебное'], summary: 'Проверка работоспособности' },
 	})
 	// REST API под общим префиксом
-	.group(config.apiPrefix, (grp) => grp.use(itemsRoutes).use(statsRoutes).use(metaRoutes))
+	.group(config.apiPrefix, (grp) =>
+		grp
+			.use(authRoutes) // /api/auth/*   (публичные: register/login/logout; me — по cookie)
+			.use(statsRoutes) // /api/stats   (требует вход — guard внутри файла)
+			.use(metaRoutes) // /api/categories, /api/locations (требует вход)
+			.use(itemsRoutes) // /api/items/*  (GET — любая роль; POST/PUT/DELETE — editor/admin)
+			.use(adminRoutes), // /api/admin/*  (только admin — guard внутри файла)
+	)
 	// Фронтенд: отдаём файлы из public/ вручную (staticPlugin в Elysia 1.4
 	// конфликтует с response-валидацией для Bun.file, поэтому обходимся простым роутом).
 	.get('*', ({ set, path }) => {
@@ -95,15 +105,23 @@ const app = new Elysia()
 		return Bun.file('public/index.html');
 	});
 
-app.listen({ port: config.port, hostname: config.host }, (server) => {
-	console.log('═══════════════════════════════════════════════');
-	console.log('  📦 Инвентарь офиса — сервер запущен');
-	console.log('═══════════════════════════════════════════════');
-	console.log(`  Сайт:        http://${server.hostname}:${server.port}`);
-	console.log(`  API:         http://${server.hostname}:${server.port}${config.apiPrefix}/items`);
-	console.log(`  Документация: http://${server.hostname}:${server.port}/swagger`);
-	console.log(`  Health:      http://${server.hostname}:${server.port}/health`);
-	console.log('───────────────────────────────────────────────');
-	console.log(`  Режим: ${config.isProd ? 'production' : 'development'} | БД: ${config.dbPath}`);
-	console.log('═══════════════════════════════════════════════');
-});
+// --- Запуск (async — argon2-хеширование при bootstrap админа асинхронно) -------
+async function main() {
+	// Первый администратор создаётся, если пользователей ещё нет.
+	await bootstrapAdminIfEmpty();
+
+	app.listen({ port: config.port, hostname: config.host }, (server) => {
+		console.log('═══════════════════════════════════════════════');
+		console.log('  📦 Инвентарь офиса — сервер запущен');
+		console.log('═══════════════════════════════════════════════');
+		console.log(`  Сайт:        http://${server.hostname}:${server.port}`);
+		console.log(`  API:         http://${server.hostname}:${server.port}${config.apiPrefix}/items`);
+		console.log(`  Документация: http://${server.hostname}:${server.port}/swagger`);
+		console.log(`  Health:      http://${server.hostname}:${server.port}/health`);
+		console.log('───────────────────────────────────────────────');
+		console.log(`  Режим: ${config.isProd ? 'production' : 'development'} | БД: ${config.dbPath}`);
+		console.log('═══════════════════════════════════════════════');
+	});
+}
+
+main();

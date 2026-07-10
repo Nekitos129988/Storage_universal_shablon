@@ -9,7 +9,7 @@ import { Database } from 'bun:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { config } from '../config.ts';
-import { CREATE_INDEXES_SQL, CREATE_TABLE_SQL } from './schema.ts';
+import { CREATE_INDEXES_SQL, CREATE_TABLE_SQL, CREATE_USERS_INDEX_SQL, CREATE_USERS_TABLE_SQL } from './schema.ts';
 
 let dbInstance: Database | null = null;
 
@@ -32,6 +32,18 @@ export function getDb(): Database {
 	db.exec('PRAGMA foreign_keys = ON;');
 	db.exec(CREATE_TABLE_SQL);
 	db.exec(CREATE_INDEXES_SQL);
+	db.exec(CREATE_USERS_TABLE_SQL);
+	db.exec(CREATE_USERS_INDEX_SQL);
+
+	// Миграция: для уже существующей БД CREATE TABLE IF NOT EXISTS не добавит
+	// колонку status — проверяем и при необходимости ALTER.
+	// Существующим аккаунтам ставим 'active' (они уже работают в системе).
+	const cols = db.prepare('PRAGMA table_info(users)').all() as { name: string }[];
+	if (!cols.some((c) => c.name === 'status')) {
+		db.exec(
+			"ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('pending','active'))",
+		);
+	}
 
 	dbInstance = db;
 	return db;

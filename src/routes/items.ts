@@ -10,6 +10,7 @@ import {
 	listItems,
 	updateItem,
 } from '../services/itemsService.ts';
+import { authPlugin, requireAuth, requireRole } from '../plugins/auth.ts';
 
 /** TypeBox-схема тела запроса для create/update. */
 const itemBodySchema = t.Object({
@@ -33,21 +34,22 @@ const listQuerySchema = t.Object({
 });
 
 export const itemsRoutes = new Elysia()
+	.use(authPlugin)
 	.group('/items', (app) =>
 		app
-			// GET /items — список с фильтрами/сортировкой/пагинацией/статистикой
+			// GET /items — список с фильтрами/сортировкой/пагинацией/статистикой (любая роль)
 			.get(
 				'',
 				({ query }) => listItems(query),
-				{ query: listQuerySchema, detail: { tags: ['Товары'], summary: 'Список товаров с фильтрами и пагинацией' } },
+				{ query: listQuerySchema, beforeHandle: requireAuth, detail: { tags: ['Товары'], summary: 'Список товаров с фильтрами и пагинацией' } },
 			)
-			// GET /items/:id — один товар
+			// GET /items/:id — один товар (любая роль)
 			.get(
 				'/:id',
 				({ params }) => getItemById(Number(params.id)),
-				{ detail: { tags: ['Товары'], summary: 'Получить товар по id' } },
+				{ beforeHandle: requireAuth, detail: { tags: ['Товары'], summary: 'Получить товар по id' } },
 			)
-			// POST /items — создать
+			// POST /items — создать (editor/admin)
 			.post(
 				'',
 				({ body, set }) => {
@@ -55,15 +57,15 @@ export const itemsRoutes = new Elysia()
 					set.status = 201;
 					return item;
 				},
-				{ body: itemBodySchema, detail: { tags: ['Товары'], summary: 'Создать товар' } },
+				{ body: itemBodySchema, beforeHandle: requireRole('editor', 'admin'), detail: { tags: ['Товары'], summary: 'Создать товар' } },
 			)
-			// PUT /items/:id — обновить
+			// PUT /items/:id — обновить (editor/admin)
 			.put(
 				'/:id',
 				({ params, body }) => updateItem(Number(params.id), body as t.Static<typeof itemBodySchema>),
-				{ body: itemBodySchema, detail: { tags: ['Товары'], summary: 'Обновить товар' } },
+				{ body: itemBodySchema, beforeHandle: requireRole('editor', 'admin'), detail: { tags: ['Товары'], summary: 'Обновить товар' } },
 			)
-			// DELETE /items/:id — удалить
+			// DELETE /items/:id — удалить (editor/admin)
 			.delete(
 				'/:id',
 				({ params, set }) => {
@@ -71,6 +73,6 @@ export const itemsRoutes = new Elysia()
 					set.status = 204;
 					return null;
 				},
-				{ detail: { tags: ['Товары'], summary: 'Удалить товар' } },
+				{ beforeHandle: requireRole('editor', 'admin'), detail: { tags: ['Товары'], summary: 'Удалить товар' } },
 			),
 	);

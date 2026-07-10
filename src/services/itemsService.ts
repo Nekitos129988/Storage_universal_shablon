@@ -85,13 +85,29 @@ export function listItems(query: ItemListQuery): ItemListResult {
 			params.$minQuantity = minQ;
 		}
 	}
-	if (query.search && query.search.trim() !== '') {
-		// Поиск без учёта регистра по названию и описанию (LIKE в SQLite case-insensitive).
-		conditions.push('(LOWER(name) LIKE $search OR LOWER(COALESCE(description, "")) LIKE $search)');
-		params.$search = `%${query.search.trim().toLowerCase()}%`;
-	}
 
 	const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+	const search = query.search?.trim() ?? '';
+
+	// Текстовый поиск выполняем в JS, а не в SQL: встроенная SQLite LOWER() работает
+	// только с ASCII и не приводит кириллицу к нижнему регистру, из-за чего поиск по
+	// русским словам с разным регистром ничего не находил. String.toLowerCase()
+	// корректно обрабатывает Unicode.
+	if (search) {
+		const all = db
+			.prepare(`SELECT * FROM items ${whereSql} ORDER BY ${field} ${direction}`)
+			.all(params) as Item[];
+		const q = search.toLowerCase();
+		const filtered = all.filter(
+			(it) => it.name.toLowerCase().includes(q) || (it.description ?? '').toLowerCase().includes(q),
+		);
+		const items = filtered.slice(offset, offset + perPage);
+		return {
+			items,
+			pagination: buildPagination(page, perPage, filtered.length),
+			stats: getStats(),
+		};
+	}
 
 	// Поле сортировки берётся из whitelist, поэтому безопасно подставлять в SQL напрямую.
 	const itemsSql = `SELECT * FROM items ${whereSql} ORDER BY ${field} ${direction} LIMIT $limit OFFSET $offset`;

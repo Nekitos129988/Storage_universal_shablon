@@ -1,11 +1,12 @@
 /**
- * Маршрут статистики: /stats
+ * Маршрут статистики: /stats (требует входа — любая роль)
  */
 import { Elysia } from 'elysia';
 import { getStats } from '../services/itemsService.ts';
+import { authPlugin, requireAuth } from '../plugins/auth.ts';
 
-export const statsRoutes = new Elysia().get(
+export const statsRoutes = new Elysia().use(authPlugin).get(
 	'/stats',
 	() => getStats(),
-	{ detail: { tags: ['Аналитика'], summary: 'Статистика по всем товарам' } },
+	{ beforeHandle: requireAuth, detail: { tags: ['Аналитика'], summary: 'Статистика по всем товарам' } },
 );

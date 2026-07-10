@@ -17,6 +17,16 @@ const state = {
     per_page: 10,
 };
 
+// --- Состояние аутентификации -----------------------------------------------
+const auth = { user: null };
+
+const isAuthenticated = () => !!auth.user;
+/** editor или admin — могут создавать/редактировать/удалять товары. */
+const canEdit = () => !!auth.user && (auth.user.role === 'admin' || auth.user.role === 'editor');
+const isAdmin = () => !!auth.user && auth.user.role === 'admin';
+const roleLabel = (r) => ({ admin: 'Администратор', editor: 'Редактор', viewer: 'Наблюдатель' }[r] || r);
+const roleBadgeClass = (r) => (r === 'admin' ? 'badge-danger' : r === 'editor' ? 'badge-warn' : 'badge-ok');
+
 // --- Маленькие хелперы ------------------------------------------------------
 const $ = (sel) => document.querySelector(sel);
 const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -29,6 +39,16 @@ async function api(path, options = {}) {
     if (res.status === 204) return null;
     const data = await res.json().catch(() => null);
     if (!res.ok) {
+        // 401 = сессия истекла/отсутствует → сбрасываем пользователя и отправляем на вход.
+        if (res.status === 401) {
+            auth.user = null;
+            updateNavbar();
+            const h = location.hash;
+            if (!h.startsWith('#/login') && !h.startsWith('#/register')) {
+                location.hash = '#/login';
+                flash('Войдите в систему', 'warning');
+            }
+        }
         const msg = data?.error?.message || `Ошибка ${res.status}`;
         throw new Error(msg);
     }
@@ -88,6 +108,11 @@ function renderListPage(data, meta) {
     const catOptions = meta.categories.map((c) => `<option value="${escapeHtml(c)}" ${state.category === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('');
     const locOptions = meta.locations.map((l) => `<option value="${escapeHtml(l)}" ${state.location === l ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('');
 
+    // Кнопки действий (редактировать/удалить) доступны только editor/admin.
+    const editAllowed = canEdit();
+    const actionsTh = editAllowed ? '<th class="text-center" style="width:90px;">Действия</th>' : '';
+    const colspan = editAllowed ? 7 : 6;
+
     const rows = items.length
         ? items.map((it) => `
             <tr>
@@ -97,12 +122,12 @@ function renderListPage(data, meta) {
                 <td>${quantityBadge(it.quantity)}</td>
                 <td class="d-none d-md-table-cell">${escapeHtml(it.location)}</td>
                 <td class="d-none d-lg-table-cell text-muted">${escapeHtml(it.date_added)}</td>
-                <td class="text-center" style="white-space:nowrap;">
+                ${editAllowed ? `<td class="text-center" style="white-space:nowrap;">
                     <a href="#/edit/${it.id}" class="btn btn-sm btn-action" title="Редактировать"><i class="fas fa-pen"></i></a>
                     <button class="btn btn-sm btn-action btn-danger" data-del="${it.id}" title="Удалить"><i class="fas fa-trash"></i></button>
-                </td>
+                </td>` : ''}
             </tr>`).join('')
-        : `<tr><td colspan="7" class="text-center py-5 text-muted"><i class="fas fa-inbox fa-2x d-block mb-2"></i>Нет товаров, соответствующих фильтрам</td></tr>`;
+        : `<tr><td colspan="${colspan}" class="text-center py-5 text-muted"><i class="fas fa-inbox fa-2x d-block mb-2"></i>Нет товаров, соответствующих фильтрам</td></tr>`;
 
     // Пагинация
     let pagination = '';
@@ -152,7 +177,7 @@ function renderListPage(data, meta) {
                     <th><a href="${sortHref('quantity')}" class="text-decoration-none text-reset">Кол-во ${sortArrow('quantity')}</a></th>
                     <th class="d-none d-md-table-cell"><a href="${sortHref('location')}" class="text-decoration-none text-reset">Местоположение ${sortArrow('location')}</a></th>
                     <th class="d-none d-lg-table-cell"><a href="${sortHref('date_added')}" class="text-decoration-none text-reset">Дата ${sortArrow('date_added')}</a></th>
-                    <th class="text-center" style="width:90px;">Действия</th>
+                    ${actionsTh}
                 </tr></thead>
                 <tbody>${rows}</tbody>
             </table>
@@ -269,12 +294,266 @@ function locationOptions(selected) {
     return locs.map((l) => `<option value="${l}" ${selected === l ? 'selected' : ''}>${l}</option>`).join('');
 }
 
+// --- Навбар в зависимости от состояния входа --------------------------------
+function updateNavbar() {
+    const toggle = (id, show) => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('d-none', !show);
+    };
+    const authed = isAuthenticated();
+    toggle('nav-user', authed);
+    toggle('nav-logout', authed);
+    toggle('nav-login', !authed);
+    toggle('nav-register', !authed);
+    toggle('nav-admin', isAdmin());
+    toggle('nav-add', canEdit());
+    if (authed) {
+        const nameEl = document.getElementById('nav-username');
+        const roleEl = document.getElementById('nav-role');
+        if (nameEl) nameEl.textContent = auth.user.username;
+        if (roleEl) {
+            roleEl.textContent = roleLabel(auth.user.role);
+            roleEl.className = 'badge ' + roleBadgeClass(auth.user.role);
+        }
+    }
+}
+
+// --- Страница входа ----------------------------------------------------------
+function renderLogin() {
+    $('#app').innerHTML = `
+    <div class="row justify-content-center"><div class="col-12 col-sm-8 col-md-6 col-lg-5">
+        <div class="card"><div class="card-body p-3 p-sm-4">
+            <h1 class="page-title text-center"><i class="fas fa-sign-in-alt me-2" style="color:var(--accent)"></i>Вход</h1>
+            <form id="auth-form">
+                <div class="mb-3"><label class="form-label">Имя пользователя</label>
+                    <input type="text" class="form-control" name="username" required autocomplete="username" autofocus></div>
+                <div class="mb-3"><label class="form-label">Пароль</label>
+                    <input type="password" class="form-control" name="password" required autocomplete="current-password"></div>
+                <button type="submit" class="btn btn-save w-100"><i class="fas fa-sign-in-alt me-1"></i> Войти</button>
+            </form>
+            <div class="text-center mt-3"><small class="text-muted">Нет аккаунта? <a href="#/register">Зарегистрироваться</a></small></div>
+        </div></div>
+    </div></div>`;
+
+    $('#auth-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        try {
+            const data = await api('/auth/login', { method: 'POST', body: JSON.stringify({ username: fd.get('username').trim(), password: fd.get('password') }) });
+            auth.user = data.user;
+            updateNavbar();
+            flash(`Добро пожаловать, ${data.user.username}!`);
+            location.hash = '#/';
+        } catch (err) {
+            flash(err.message, 'danger');
+        }
+    });
+}
+
+// --- Страница регистрации ----------------------------------------------------
+function renderRegister() {
+    $('#app').innerHTML = `
+    <div class="row justify-content-center"><div class="col-12 col-sm-8 col-md-6 col-lg-5">
+        <div class="card"><div class="card-body p-3 p-sm-4">
+            <h1 class="page-title text-center"><i class="fas fa-user-plus me-2" style="color:var(--accent)"></i>Регистрация</h1>
+            <form id="auth-form">
+                <div class="mb-3"><label class="form-label">Имя пользователя <span class="req">*</span></label>
+                    <input type="text" class="form-control" name="username" required minlength="3" autocomplete="username" autofocus></div>
+                <div class="mb-3"><label class="form-label">Пароль <span class="req">*</span></label>
+                    <input type="password" class="form-control" name="password" required minlength="6" autocomplete="new-password"></div>
+                <div class="mb-3"><label class="form-label">Повторите пароль <span class="req">*</span></label>
+                    <input type="password" class="form-control" name="confirm" required minlength="6" autocomplete="new-password"></div>
+                <button type="submit" class="btn btn-save w-100"><i class="fas fa-user-plus me-1"></i> Зарегистрироваться</button>
+            </form>
+            <div class="text-center mt-3"><small class="text-muted">Уже есть аккаунт? <a href="#/login">Войти</a></small></div>
+            <div class="text-center mt-2"><small class="text-muted">После регистрации учётная запись потребует подтверждения администратора.</small></div>
+        </div></div>
+    </div></div>`;
+
+    $('#auth-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const username = fd.get('username').trim();
+        const password = fd.get('password');
+        if (password !== fd.get('confirm')) {
+            flash('Пароли не совпадают', 'danger');
+            return;
+        }
+        try {
+            await api('/auth/register', { method: 'POST', body: JSON.stringify({ username, password }) });
+            // Сервер НЕ выполняет вход — учётная запись ждёт подтверждения администратора.
+            flash('Регистрация принята! Ожидает подтверждения администратора.', 'success');
+            location.hash = '#/login';
+        } catch (err) {
+            flash(err.message, 'danger');
+        }
+    });
+}
+
+// --- Админка: управление пользователями --------------------------------------
+async function renderAdmin() {
+    $('#app').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+    try {
+        const data = await api('/admin/users');
+        renderAdminPage(data.users);
+    } catch (e) {
+        $('#app').innerHTML = `<div class="alert alert-danger">${escapeHtml(e.message)}</div>`;
+    }
+}
+
+function renderAdminPage(users) {
+    const meId = auth.user.id;
+    const pendingCount = users.filter((u) => u.status === 'pending').length;
+    const statusBadge = (u) =>
+        u.status === 'active'
+            ? '<span class="badge badge-ok">Активен</span>'
+            : '<span class="badge badge-warn">Ожидает</span>';
+
+    const rows = users
+        .map((u) => {
+            const isSelf = u.id === meId;
+            const roleOpts = ['admin', 'editor', 'viewer']
+                .map((r) => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${roleLabel(r)}</option>`)
+                .join('');
+            const approveBtn =
+                u.status === 'pending'
+                    ? `<button class="btn btn-sm btn-action approve-user" data-id="${u.id}" title="Подтвердить учётную запись"><i class="fas fa-user-check"></i></button>`
+                    : '';
+            return `<tr>
+                <td class="text-muted">${u.id}</td>
+                <td><strong>${escapeHtml(u.username)}</strong>${isSelf ? ' <span class="badge badge-soft">это вы</span>' : ''}</td>
+                <td>
+                    <select class="form-select form-select-sm user-role" data-id="${u.id}" data-orig="${u.role}" ${isSelf ? 'disabled' : ''}>${roleOpts}</select>
+                </td>
+                <td>${statusBadge(u)}</td>
+                <td class="text-muted small d-none d-md-table-cell">${escapeHtml(u.created_at)}</td>
+                <td class="text-center" style="white-space:nowrap;">
+                    ${approveBtn}
+                    <button class="btn btn-sm btn-action save-role" data-id="${u.id}" ${isSelf ? 'disabled' : ''} title="Сохранить роль"><i class="fas fa-check"></i></button>
+                    <button class="btn btn-sm btn-action btn-danger del-user" data-id="${u.id}" ${isSelf ? 'disabled' : ''} title="Удалить"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>`;
+        })
+        .join('');
+
+    const pendingHint = pendingCount
+        ? `<span class="count-pill ms-2" style="background:var(--warn-bg,var(--warn));color:#fff">${pendingCount} ждёт подтверждения</span>`
+        : '';
+
+    $('#app').innerHTML = `
+    <div class="row"><div class="col-12">
+        <div class="d-flex align-items-center flex-wrap mb-3 mb-sm-4">
+            <h1 class="page-title"><i class="fas fa-users-cog me-1" style="color:var(--accent)"></i>Управление пользователями</h1>
+            <span class="count-pill ms-2">${users.length} чел.</span>
+            ${pendingHint}
+        </div>
+        <div class="card"><div class="card-body p-0"><div class="table-responsive">
+            <table class="table table-hover mb-0" style="min-width:640px;">
+                <thead><tr>
+                    <th style="width:44px;">#</th>
+                    <th>Имя пользователя</th>
+                    <th style="width:150px;">Роль</th>
+                    <th style="width:100px;">Статус</th>
+                    <th class="d-none d-md-table-cell">Создан</th>
+                    <th class="text-center" style="width:120px;">Действия</th>
+                </tr></thead>
+                <tbody>${rows || '<tr><td colspan="6" class="text-center py-4 text-muted">Нет пользователей</td></tr>'}</tbody>
+            </table>
+        </div></div></div>
+        <div class="text-muted small mt-3">Для ожидающего пользователя нажмите <i class="fas fa-user-check"></i> (подтвердить). Смените роль в списке и нажмите <i class="fas fa-check"></i>. Свою роль и роль последнего администратора менять нельзя.</div>
+    </div></div>`;
+
+    document.querySelectorAll('.approve-user').forEach((btn) => btn.addEventListener('click', () => onApproveUser(Number(btn.dataset.id))));
+    document.querySelectorAll('.save-role').forEach((btn) => btn.addEventListener('click', () => onSaveRole(btn.dataset.id)));
+    document.querySelectorAll('.del-user').forEach((btn) => btn.addEventListener('click', () => onDeleteUser(Number(btn.dataset.id))));
+}
+
+async function onApproveUser(id) {
+    try {
+        await api(`/admin/users/${id}/approve`, { method: 'POST' });
+        flash('Учётная запись подтверждена — пользователь может войти');
+        renderAdmin();
+    } catch (e) {
+        flash(e.message, 'danger');
+    }
+}
+
+async function onSaveRole(id) {
+    const sel = document.querySelector(`.user-role[data-id="${id}"]`);
+    if (!sel) return;
+    const newRole = sel.value;
+    try {
+        await api(`/admin/users/${id}`, { method: 'PUT', body: JSON.stringify({ role: newRole }) });
+        sel.dataset.orig = newRole;
+        flash('Роль пользователя обновлена');
+    } catch (e) {
+        sel.value = sel.dataset.orig; // откатываем выбор
+        flash(e.message, 'danger');
+    }
+}
+
+async function onDeleteUser(id) {
+    if (!confirm('Удалить этого пользователя? Действие нельзя отменить.')) return;
+    try {
+        await api(`/admin/users/${id}`, { method: 'DELETE' });
+        flash('Пользователь удалён');
+        renderAdmin();
+    } catch (e) {
+        flash(e.message, 'danger');
+    }
+}
+
+// --- Выход -------------------------------------------------------------------
+async function onLogout() {
+    try {
+        await api('/auth/logout', { method: 'POST' });
+    } catch {
+        /* даже если запрос упал — сбрасываем локальное состояние */
+    }
+    auth.user = null;
+    updateNavbar();
+    flash('Вы вышли из системы');
+    location.hash = '#/login';
+}
+
 // --- Хэш-роутинг -------------------------------------------------------------
 async function router() {
     const hash = location.hash.replace(/^#\/?/, ''); // убираем '#/' или '#'
     const [path, queryString] = hash.split('?');
 
-    // Парсим query-параметры в состояние
+    // --- Защита маршрутов ---------------------------------------------------
+    // Вошедший пользователь не видит страницы входа/регистрации.
+    if ((path === 'login' || path === 'register') && isAuthenticated()) {
+        location.hash = '#/';
+        return;
+    }
+    // Весь сайт (кроме страниц входа/регистрации) требует аутентификации.
+    if (!isAuthenticated() && path !== 'login' && path !== 'register') {
+        location.hash = '#/login';
+        return;
+    }
+    // Админка доступна только администратору.
+    if (path === 'admin' && !isAdmin()) {
+        flash('Недостаточно прав для доступа к разделу администрирования', 'danger');
+        location.hash = '#/';
+        return;
+    }
+
+    // --- Вспомогательные маршруты (ранний выход) ----------------------------
+    if (path === 'login') {
+        renderLogin();
+        return;
+    }
+    if (path === 'register') {
+        renderRegister();
+        return;
+    }
+    if (path === 'admin') {
+        renderAdmin();
+        return;
+    }
+
+    // --- Парсим query-параметры в состояние (для списка товаров) ------------
     const params = new URLSearchParams(queryString || '');
     state.category = params.get('category') || '';
     state.location = params.get('location') || '';
@@ -285,8 +564,18 @@ async function router() {
     state.page = Number(params.get('page')) || 1;
 
     if (path === 'add') {
+        if (!canEdit()) {
+            flash('Недостаточно прав для добавления товаров', 'danger');
+            location.hash = '#/';
+            return;
+        }
         renderForm('add');
     } else if (path.startsWith('edit/')) {
+        if (!canEdit()) {
+            flash('Недостаточно прав для редактирования', 'danger');
+            location.hash = '#/';
+            return;
+        }
         const id = Number(path.split('/')[1]);
         try {
             const item = await api(`/items/${id}`);
@@ -301,4 +590,19 @@ async function router() {
 }
 
 window.addEventListener('hashchange', router);
-window.addEventListener('DOMContentLoaded', router);
+window.addEventListener('DOMContentLoaded', async () => {
+    // Перед первым роутом — определяем состояние аутентификации по cookie.
+    try {
+        const data = await api('/auth/me');
+        auth.user = data.user;
+    } catch {
+        auth.user = null;
+    }
+    updateNavbar();
+
+    // Обработчик кнопки выхода в навбаре.
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) logoutBtn.addEventListener('click', onLogout);
+
+    router();
+});
