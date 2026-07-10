@@ -47,7 +47,7 @@ export const authRoutes = new Elysia()
 				'/login',
 				async ({ body, set }) => {
 					const { user, token } = await login(body);
-					set.cookie.session = { value: token, ...sessionCookieAttrs(), maxAge: config.sessionTtlHours * 3600 };
+					set.cookie!.session = { value: token, ...sessionCookieAttrs(), maxAge: config.sessionTtlHours * 3600 };
 					return { user };
 				},
 				{
@@ -62,7 +62,7 @@ export const authRoutes = new Elysia()
 			.post(
 				'/logout',
 				({ set }) => {
-					set.cookie.session = { value: '', ...sessionCookieAttrs(), maxAge: 0 };
+					set.cookie!.session = { value: '', ...sessionCookieAttrs(), maxAge: 0 };
 					return { ok: true };
 				},
 				{ detail: { tags: ['Аутентификация'], summary: 'Выход из системы' } },

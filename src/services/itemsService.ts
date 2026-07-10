@@ -27,7 +27,7 @@ export interface ItemListQuery {
 	min_quantity?: string;
 	search?: string;
 	sort?: string;
-	order?: 'asc' | 'desc';
+	order?: string;
 }
 
 export interface CategoryStat {
@@ -68,7 +68,7 @@ export function listItems(query: ItemListQuery): ItemListResult {
 
 	// Динамически собираем WHERE только для переданных фильтров.
 	const conditions: string[] = [];
-	const params: Record<string, unknown> = {};
+	const params: Record<string, string | number | null> = {};
 
 	if (query.category) {
 		conditions.push('category = $category');

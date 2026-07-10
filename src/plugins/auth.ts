@@ -18,14 +18,23 @@ import { verifySessionToken } from '../services/authService.ts';
 import type { PublicUser, Role } from '../db/schema.ts';
 import { Forbidden, Unauthorized } from '../utils/httpErrors.ts';
 
-export type AuthContext = { currentUser: PublicUser | null };
+/**
+ * Контекст аутентификации для внешних гвардов (requireAuth/requireRole).
+ *
+ * currentUser объявлен опциональным, а индекс-сигнатура `[k: string]: unknown`
+ * делает тип «не слабым» — иначе при использовании гварда в .guard() Elysia
+ * типизационно не видит currentUser из scoped-derive и ругается на несовместимость.
+ * В рантайме authPlugin всегда добавляет currentUser в контекст.
+ */
+export type AuthContext = { currentUser?: PublicUser | null; [k: string]: unknown };
 
 /**
  * derive: достаёт currentUser из сессионной cookie.
  * verifySessionToken никогда не бросает (→ null при любой проблеме).
  */
 export const authPlugin = new Elysia({ name: 'app.auth' }).derive({ as: 'scoped' }, ({ cookie }) => {
-	const token = cookie?.session?.value ?? null;
+	const raw = cookie?.session?.value;
+	const token = typeof raw === 'string' ? raw : null;
 	return { currentUser: verifySessionToken(token) };
 });
 

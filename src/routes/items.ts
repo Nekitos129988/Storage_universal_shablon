@@ -11,6 +11,7 @@ import {
 	updateItem,
 } from '../services/itemsService.ts';
 import { authPlugin, requireAuth, requireRole } from '../plugins/auth.ts';
+import type { ItemInput } from '../db/schema.ts';
 
 /** TypeBox-схема тела запроса для create/update. */
 const itemBodySchema = t.Object({
@@ -53,7 +54,7 @@ export const itemsRoutes = new Elysia()
 			.post(
 				'',
 				({ body, set }) => {
-					const item = createItem(body as t.Static<typeof itemBodySchema>);
+					const item = createItem(body as ItemInput);
 					set.status = 201;
 					return item;
 				},
@@ -62,7 +63,7 @@ export const itemsRoutes = new Elysia()
 			// PUT /items/:id — обновить (editor/admin)
 			.put(
 				'/:id',
-				({ params, body }) => updateItem(Number(params.id), body as t.Static<typeof itemBodySchema>),
+				({ params, body }) => updateItem(Number(params.id), body as ItemInput),
 				{ body: itemBodySchema, beforeHandle: requireRole('editor', 'admin'), detail: { tags: ['Товары'], summary: 'Обновить товар' } },
 			)
 			// DELETE /items/:id — удалить (editor/admin)
