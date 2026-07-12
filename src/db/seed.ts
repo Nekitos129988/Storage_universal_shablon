@@ -8,7 +8,7 @@ import { logger } from '../utils/logger.ts';
 import { getDb } from './client.ts';
 import type { Item } from './schema.ts';
 
-const SEED_ITEMS: Omit<Item, 'id'>[] = [
+const SEED_ITEMS: Omit<Item, 'id' | 'created_by' | 'updated_at'>[] = [
 	{
 		name: 'Ноутбук Lenovo',
 		category: 'Техника',
@@ -101,11 +101,20 @@ export function seedIfEmpty(): boolean {
 	if (count.n > 0) return false;
 
 	const insert = db.prepare(
-		`INSERT INTO items (name, category, quantity, location, description, date_added)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO items (name, category, quantity, location, description, date_added, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 	);
 	for (const item of SEED_ITEMS) {
-		insert.run(item.name, item.category, item.quantity, item.location, item.description, item.date_added);
+		// updated_at = date_added: тестовые позиции «созданы» и не изменялись.
+		insert.run(
+			item.name,
+			item.category,
+			item.quantity,
+			item.location,
+			item.description,
+			item.date_added,
+			item.date_added,
+		);
 	}
 	return true;
 }

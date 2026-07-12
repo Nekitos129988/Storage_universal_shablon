@@ -44,8 +44,9 @@ export const itemsRoutes = new Elysia().use(authPlugin).group('/items', (app) =>
 		// POST /items — создать (editor/admin)
 		.post(
 			'',
-			({ body, set }) => {
-				const item = createItem(body as ItemInput);
+			({ body, set, currentUser }) => {
+				// requireRole выше гарантирует currentUser; created_by — для аудита.
+				const item = createItem(body as ItemInput, currentUser!.id);
 				set.status = 201;
 				return item;
 			},

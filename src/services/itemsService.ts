@@ -146,15 +146,15 @@ export function getItemById(id: number): Item {
 	return item;
 }
 
-/** Создание товара. Возвращает созданную запись. */
-export function createItem(input: ItemInput): Item {
+/** Создание товара. userId — кто создал (для аудита created_by). Возвращает созданную запись. */
+export function createItem(input: ItemInput, userId: number | null = null): Item {
 	validateInput(input);
 	const db = getDb();
-	const dateAdded = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+	const now = new Date().toISOString();
 	const result = db
 		.prepare(
-			`INSERT INTO items (name, category, quantity, location, description, date_added)
-			 VALUES ($name, $category, $quantity, $location, $description, $dateAdded)`,
+			`INSERT INTO items (name, category, quantity, location, description, date_added, created_by, updated_at)
+			 VALUES ($name, $category, $quantity, $location, $description, $dateAdded, $createdBy, $updatedAt)`,
 		)
 		.run({
 			$name: input.name,
@@ -162,13 +162,15 @@ export function createItem(input: ItemInput): Item {
 			$quantity: input.quantity,
 			$location: input.location,
 			$description: input.description ?? null,
-			$dateAdded: dateAdded,
+			$dateAdded: now.slice(0, 10), // 'YYYY-MM-DD'
+			$createdBy: userId,
+			$updatedAt: now,
 		});
 
 	return getItemById(Number(result.lastInsertRowid));
 }
 
-/** Обновление товара. */
+/** Обновление товара (обновляет updated_at). */
 export function updateItem(id: number, input: ItemInput): Item {
 	// Проверяем существование — выбросит NotFound если нет.
 	getItemById(id);
@@ -178,7 +180,7 @@ export function updateItem(id: number, input: ItemInput): Item {
 	db.prepare(
 		`UPDATE items
 		 SET name = $name, category = $category, quantity = $quantity,
-		     location = $location, description = $description
+		     location = $location, description = $description, updated_at = $updatedAt
 		 WHERE id = $id`,
 	).run({
 		$id: id,
@@ -187,6 +189,7 @@ export function updateItem(id: number, input: ItemInput): Item {
 		$quantity: input.quantity,
 		$location: input.location,
 		$description: input.description ?? null,
+		$updatedAt: new Date().toISOString(),
 	});
 
 	return getItemById(id);

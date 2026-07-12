@@ -170,6 +170,21 @@ describe('items: CRUD, FTS-поиск, лимиты', () => {
 		expect(updated.quantity).toBe(9);
 	});
 
+	test('аудит: createItem фиксирует created_by и updated_at', () => {
+		const it = items.createItem({ name: 'Аудит', category: 'C', quantity: 1, location: 'L' }, 42);
+		expect(it.created_by).toBe(42);
+		expect(it.updated_at).not.toBeNull();
+	});
+
+	test('аудит: updateItem обновляет updated_at', () => {
+		const it = items.createItem({ name: 'Аудит2', category: 'C', quantity: 1, location: 'L' }, 42);
+		const before = it.updated_at;
+		const updated = items.updateItem(it.id, { name: 'Аудит2!', category: 'C', quantity: 2, location: 'L' });
+		expect(updated.updated_at).not.toBeNull();
+		expect(updated.updated_at! >= before!).toBe(true);
+		expect(updated.created_by).toBe(42); // создатель не меняется при обновлении
+	});
+
 	test('удаление приводит к NotFound при повторном запросе', () => {
 		const it = items.createItem({ name: 'Удаляемое', category: 'C', quantity: 1, location: 'L' });
 		items.deleteItem(it.id);

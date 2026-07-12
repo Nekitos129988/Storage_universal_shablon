@@ -62,6 +62,17 @@ export function getDb(): Database {
 		);
 	}
 
+	// Миграция: аудит-колонки items (created_by, updated_at). Без FK — валидация на уровне приложения.
+	const itemCols = db.prepare('PRAGMA table_info(items)').all() as { name: string }[];
+	if (!itemCols.some((c) => c.name === 'created_by')) {
+		db.exec('ALTER TABLE items ADD COLUMN created_by INTEGER');
+	}
+	if (!itemCols.some((c) => c.name === 'updated_at')) {
+		db.exec('ALTER TABLE items ADD COLUMN updated_at TEXT');
+		// Бэкфилл: для существующих записей updated_at = date_added (известное время изменения).
+		db.exec('UPDATE items SET updated_at = date_added WHERE updated_at IS NULL');
+	}
+
 	dbInstance = db;
 	return db;
 }
