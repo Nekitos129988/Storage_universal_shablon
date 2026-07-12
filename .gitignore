@@ -1,7 +1,5 @@
 # Зависимости
 node_modules/
-bun.lock
-bun.lockb
 
 # Сборка
 dist/
