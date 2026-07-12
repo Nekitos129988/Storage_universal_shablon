@@ -32,6 +32,7 @@ import { config } from './config.ts';
 import { closeDb, getDb } from './db/client.ts';
 import { seedIfEmpty } from './db/seed.ts';
 import { globalRateLimit } from './plugins/rateLimit.ts';
+import { requestLogger } from './plugins/requestLogger.ts';
 import { adminRoutes } from './routes/admin.ts';
 import { authRoutes } from './routes/auth.ts';
 import { itemsRoutes } from './routes/items.ts';
@@ -39,11 +40,12 @@ import { metaRoutes } from './routes/meta.ts';
 import { statsRoutes } from './routes/stats.ts';
 import { bootstrapAdminIfEmpty } from './services/authService.ts';
 import { HttpError } from './utils/httpErrors.ts';
+import { logger } from './utils/logger.ts';
 
 // --- Инициализация БД при старте -------------------------------------------
 getDb();
 const seeded = seedIfEmpty();
-if (seeded) console.log('✅ БД инициализирована тестовыми данными');
+if (seeded) logger.info('БД инициализирована тестовыми данными');
 
 // --- Приложение -------------------------------------------------------------
 // Абсолютный корень статики: все отдаваемые файлы обязаны лежать внутри него.
@@ -66,7 +68,7 @@ const app = new Elysia()
 			});
 		}
 		// Всё прочее — 500.
-		console.error('[ERROR]', error);
+		logger.error({ err: error }, 'необработанная ошибка');
 		return setStatus(500, {
 			error: {
 				code: 'INTERNAL_ERROR',
@@ -74,6 +76,8 @@ const app = new Elysia()
 			},
 		});
 	})
+	// Логирование всех запросов (requestId + тайминг).
+	.use(requestLogger)
 	// CORS
 	.use(
 		cors({
@@ -136,20 +140,21 @@ async function main() {
 	await bootstrapAdminIfEmpty();
 
 	app.listen({ port: config.port, hostname: config.host }, (server) => {
-		console.log('═══════════════════════════════════════════════');
-		console.log('  📦 Инвентарь офиса — сервер запущен');
-		console.log('═══════════════════════════════════════════════');
-		console.log(`  Сайт:        http://${server.hostname}:${server.port}`);
-		console.log(`  API:         http://${server.hostname}:${server.port}${config.apiPrefix}/items`);
-		if (!config.isProd) console.log(`  Документация: http://${server.hostname}:${server.port}/swagger`);
-		console.log(`  Health:      http://${server.hostname}:${server.port}/health`);
-		console.log('───────────────────────────────────────────────');
-		console.log(`  Режим: ${config.isProd ? 'production' : 'development'} | БД: ${config.dbPath}`);
-		console.log('═══════════════════════════════════════════════');
+		logger.info(
+			{
+				host: server.hostname,
+				port: server.port,
+				mode: config.isProd ? 'production' : 'development',
+				apiPrefix: config.apiPrefix,
+				swagger: !config.isProd,
+				db: config.dbPath,
+			},
+			'сервер запущен',
+		);
 
 		// Корректная остановка по сигналу: перестаём принимать запросы и закрываем БД.
 		const shutdown = (sig: string) => {
-			console.log(`\n⚠️  ${sig} получен — корректная остановка...`);
+			logger.info({ signal: sig }, 'корректная остановка по сигналу');
 			server.stop();
 			closeDb();
 			process.exit(0);

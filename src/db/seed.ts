@@ -3,6 +3,8 @@
  * Запускается скриптом `bun run seed` либо автоматически при первом старте,
  * если таблица пуста.
  */
+
+import { logger } from '../utils/logger.ts';
 import { getDb } from './client.ts';
 import type { Item } from './schema.ts';
 
@@ -111,7 +113,8 @@ export function seedIfEmpty(): boolean {
 // Если файл запущен напрямую (`bun run src/db/seed.ts`) — заполняем БД.
 if (import.meta.main) {
 	const seeded = seedIfEmpty();
-	console.log(
-		seeded ? `✅ Добавлено тестовых позиций: ${SEED_ITEMS.length}` : 'ℹ️  БД уже содержит данные — сидинг пропущен.',
+	logger.info(
+		seeded ? { added: SEED_ITEMS.length } : {},
+		seeded ? 'тестовые данные добавлены' : 'БД уже содержит данные — сидинг пропущен',
 	);
 }

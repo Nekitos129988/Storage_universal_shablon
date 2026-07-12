@@ -13,6 +13,7 @@ import { config } from '../config.ts';
 import { getDb } from '../db/client.ts';
 import type { LoginInput, PublicUser, RegisterInput, User } from '../db/schema.ts';
 import { BadRequest, Conflict, Forbidden, Unauthorized } from '../utils/httpErrors.ts';
+import { logger } from '../utils/logger.ts';
 
 /**
  * Валидный argon2id-хеш мусорной строки — нужен, чтобы при отсутствии
@@ -205,17 +206,14 @@ export async function bootstrapAdminIfEmpty(): Promise<boolean> {
 		`INSERT INTO users (username, password_hash, role, status) VALUES ($username, $hash, 'admin', 'active')`,
 	).run({ $username: adminUsername, $hash: passwordHash });
 
-	console.warn('───────────────────────────────────────────────');
-	console.warn('  ⚠️  Создан администратор');
-	console.warn(`     Логин: ${adminUsername}`);
-	if (adminPasswordGenerated) {
-		// dev: пароль сгенерирован случайно — покажем, чтобы можно было войти и сразу сменить.
-		console.warn(`     Пароль: ${adminPassword} (сгенерирован случайно)`);
-	} else {
-		// prod или заданный явно: значение не выводим.
-		console.warn('     Пароль: задан через ADMIN_PASSWORD');
-	}
-	console.warn('     Смените пароль после первого входа!');
-	console.warn('───────────────────────────────────────────────');
+	logger.warn(
+		{
+			username: adminUsername,
+			passwordGenerated: adminPasswordGenerated,
+			// dev-пароль выводим, чтобы можно было войти и сразу сменить; prod-пароль не светим.
+			...(adminPasswordGenerated ? { password: adminPassword } : {}),
+		},
+		'создан администратор по умолчанию (смените пароль после первого входа)',
+	);
 	return true;
 }
