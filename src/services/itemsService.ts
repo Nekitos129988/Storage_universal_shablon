@@ -15,6 +15,7 @@ import {
 	type PaginationMeta,
 	parsePositiveInt,
 } from '../utils/pagination.ts';
+import { catalogExists, listCatalog } from './catalogService.ts';
 
 /** Поля, по которым разрешена сортировка (whitelist против SQL-инъекций). */
 const SORTABLE_FIELDS = new Set(['id', 'name', 'category', 'quantity', 'location', 'date_added']);
@@ -223,16 +224,12 @@ export function getStats(): Stats {
 
 /** Уникальные категории (для выпадающих списков фильтров). */
 export function getCategories(): string[] {
-	const db = getDb();
-	const rows = db.prepare('SELECT DISTINCT category FROM items ORDER BY category').all() as { category: string }[];
-	return rows.map((r) => r.category);
+	return listCatalog('categories').map((c) => c.name);
 }
 
 /** Уникальные локации. */
 export function getLocations(): string[] {
-	const db = getDb();
-	const rows = db.prepare('SELECT DISTINCT location FROM items ORDER BY location').all() as { location: string }[];
-	return rows.map((r) => r.location);
+	return listCatalog('locations').map((l) => l.name);
 }
 
 /** Валидация ввода (общая для create/update). */
@@ -260,5 +257,12 @@ function validateInput(input: ItemInput): void {
 	}
 	if (input.description && input.description.length > ITEM_DESCRIPTION_MAX) {
 		throw BadRequest(`Описание слишком длинное (макс. ${ITEM_DESCRIPTION_MAX} символов)`);
+	}
+	// Категория/локация должны существовать в справочниках (нормализация).
+	if (!catalogExists('categories', input.category)) {
+		throw BadRequest('Неизвестная категория');
+	}
+	if (!catalogExists('locations', input.location)) {
+		throw BadRequest('Неизвестное местоположение');
 	}
 }

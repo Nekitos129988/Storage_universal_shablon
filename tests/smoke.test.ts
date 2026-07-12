@@ -17,6 +17,7 @@ let client: typeof import('../src/db/client.ts');
 let auth: typeof import('../src/services/authService.ts');
 let items: typeof import('../src/services/itemsService.ts');
 let users: typeof import('../src/services/usersService.ts');
+let catalog: typeof import('../src/services/catalogService.ts');
 let guards: typeof import('../src/plugins/auth.ts');
 let errors: typeof import('../src/utils/httpErrors.ts');
 let typeSchema: typeof import('../src/db/schema.ts');
@@ -32,12 +33,20 @@ beforeAll(async () => {
 	auth = await import('../src/services/authService.ts');
 	items = await import('../src/services/itemsService.ts');
 	users = await import('../src/services/usersService.ts');
+	catalog = await import('../src/services/catalogService.ts');
 	guards = await import('../src/plugins/auth.ts');
 	errors = await import('../src/utils/httpErrors.ts');
 	typeSchema = await import('../src/db/schema.ts');
 
 	client.getDb(); // инициализация схемы + FTS
 	await auth.bootstrapAdminIfEmpty();
+
+	// Каталог для item-тестов: категории/локации должны существовать в справочниках.
+	const db = client.getDb();
+	const addCat = db.prepare('INSERT OR IGNORE INTO categories(name) VALUES ($n)');
+	for (const c of ['C', 'X', 'Техника', 'Мебель', 'Расходники']) addCat.run({ $n: c });
+	const addLoc = db.prepare('INSERT OR IGNORE INTO locations(name) VALUES ($n)');
+	for (const l of ['L', 'Y', 'А', 'Склад А', 'Склад Б', 'Офис 101']) addLoc.run({ $n: l });
 });
 
 afterAll(() => {
@@ -271,5 +280,60 @@ describe('guards: requireAuth / requireRole', () => {
 
 	test('requireRole пропускает подходящую роль', () => {
 		expect(() => guards.requireRole('admin', 'editor')({ currentUser: adminUser() })).not.toThrow();
+	});
+});
+
+// --- Справочники категорий/локаций -----------------------------------------
+describe('catalog: CRUD и валидация', () => {
+	test('создание/список/удаление записи', () => {
+		const entry = catalog.createCatalogEntry('categories', 'ТестоваяКат');
+		expect(entry.id).toBeGreaterThan(0);
+		expect(catalog.listCatalog('categories').some((c) => c.id === entry.id)).toBe(true);
+		catalog.deleteCatalogEntry('categories', entry.id);
+		expect(catalog.listCatalog('categories').some((c) => c.id === entry.id)).toBe(false);
+	});
+
+	test('дубликат имени → Conflict', () => {
+		const entry = catalog.createCatalogEntry('locations', 'ТестоваяЛок');
+		try {
+			expect(() => catalog.createCatalogEntry('locations', 'ТестоваяЛок')).toThrow();
+			try {
+				catalog.createCatalogEntry('locations', 'ТестоваяЛок');
+			} catch (e) {
+				expect((e as errors.HttpError).status).toBe(409);
+			}
+		} finally {
+			catalog.deleteCatalogEntry('locations', entry.id);
+		}
+	});
+
+	test('переименование глобально меняет категорию у товаров', () => {
+		const cat = catalog.createCatalogEntry('categories', 'ПереименуемаяКат');
+		const it = items.createItem({ name: 'Икс', category: 'ПереименуемаяКат', quantity: 1, location: 'L' });
+		const renamed = catalog.renameCatalogEntry('categories', cat.id, 'ПереименованнаяКат');
+		expect(renamed.name).toBe('ПереименованнаяКат');
+		expect(items.getItemById(it.id).category).toBe('ПереименованнаяКат');
+		items.deleteItem(it.id);
+		catalog.deleteCatalogEntry('categories', cat.id); // теперь не используется
+	});
+
+	test('удаление используемой категории → Conflict', () => {
+		const cat = catalog.createCatalogEntry('categories', 'ИспользуемаяКат');
+		const it = items.createItem({ name: 'Игрек', category: 'ИспользуемаяКат', quantity: 1, location: 'L' });
+		try {
+			expect(() => catalog.deleteCatalogEntry('categories', cat.id)).toThrow();
+			try {
+				catalog.deleteCatalogEntry('categories', cat.id);
+			} catch (e) {
+				expect((e as errors.HttpError).status).toBe(409);
+			}
+		} finally {
+			items.deleteItem(it.id);
+			catalog.deleteCatalogEntry('categories', cat.id); // теперь можно
+		}
+	});
+
+	test('создание товара с неизвестной категорией → BadRequest', () => {
+		expect(() => items.createItem({ name: 'Z', category: 'Несуществующая', quantity: 1, location: 'L' })).toThrow();
 	});
 });

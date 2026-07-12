@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     category TEXT NOT NULL,
-    quantity INTEGER NOT NULL,
     location TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
     description TEXT,
     date_added DATE NOT NULL,
     created_by INTEGER,
@@ -44,6 +44,27 @@ CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);
 CREATE INDEX IF NOT EXISTS idx_items_location ON items(location);
 CREATE INDEX IF NOT EXISTS idx_items_date_added ON items(date_added);
 `;
+
+/** Справочники категорий и локаций (нормализация вместо свободного текста). */
+export const CREATE_CATEGORIES_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE
+);
+`;
+
+export const CREATE_LOCATIONS_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS locations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE
+);
+`;
+
+/** Запись справочника (категория или локация). */
+export interface CatalogEntry {
+	id: number;
+	name: string;
+}
 
 /**
  * Полнотекстовый индекс FTS5 над items (external content table).

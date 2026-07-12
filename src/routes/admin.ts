@@ -1,5 +1,5 @@
 /**
- * Маршруты администрирования пользователей: /admin
+ * Маршруты администрирования: /admin (пользователи + справочники).
  * Доступны только роли 'admin' (единый guard на всю группу).
  *
  * Бизнес-правила (невозможно удалить/понизить себя или последнего админа)
@@ -8,10 +8,63 @@
 import { Elysia, t } from 'elysia';
 import type { Role } from '../db/schema.ts';
 import { authPlugin, requireRole } from '../plugins/auth.ts';
+import {
+	type CatalogTable,
+	createCatalogEntry,
+	deleteCatalogEntry,
+	listCatalog,
+	renameCatalogEntry,
+} from '../services/catalogService.ts';
 import { approveUser, createUser, deleteUser, listUsers, updateUserRole } from '../services/usersService.ts';
 
 /** TypeBox-схема роли. */
 const roleSchema = t.Union([t.Literal('admin'), t.Literal('editor'), t.Literal('viewer')]);
+
+/** TypeBox-схема названия для справочника (категория/локация). */
+const nameSchema = t.String({ minLength: 1, maxLength: 100, error: 'Название — 1–100 символов' });
+
+/**
+ * Подмаршруты CRUD для одного справочника (категории или локации).
+ * GET / — список; POST / — создать; PUT /:id — переименовать; DELETE /:id — удалить.
+ */
+function catalogGroup(prefix: '/categories' | '/locations', table: CatalogTable) {
+	const label = prefix === '/categories' ? 'категории' : 'локации';
+	return new Elysia().group(prefix, (app) =>
+		app
+			.get('', () => listCatalog(table), {
+				detail: { tags: ['Справочники'], summary: `Список: ${label}` },
+			})
+			.post(
+				'',
+				({ body, set }) => {
+					const entry = createCatalogEntry(table, (body as { name: string }).name);
+					set.status = 201;
+					return entry;
+				},
+				{
+					body: t.Object({ name: nameSchema }),
+					detail: { tags: ['Справочники'], summary: `Создать: ${label}` },
+				},
+			)
+			.put(
+				'/:id',
+				({ params, body }) => renameCatalogEntry(table, Number(params.id), (body as { name: string }).name),
+				{
+					body: t.Object({ name: nameSchema }),
+					detail: { tags: ['Справочники'], summary: `Переименовать: ${label}` },
+				},
+			)
+			.delete(
+				'/:id',
+				({ params, set }) => {
+					deleteCatalogEntry(table, Number(params.id));
+					set.status = 204;
+					return null;
+				},
+				{ detail: { tags: ['Справочники'], summary: `Удалить: ${label}` } },
+			),
+	);
+}
 
 export const adminRoutes = new Elysia()
 	.use(authPlugin)
@@ -63,6 +116,9 @@ export const adminRoutes = new Elysia()
 						return null;
 					},
 					{ detail: { tags: ['Администрирование'], summary: 'Удалить пользователя' } },
-				),
+				)
+				// Справочники категорий и локаций (CRUD).
+				.use(catalogGroup('/categories', 'categories'))
+				.use(catalogGroup('/locations', 'locations')),
 		),
 	);

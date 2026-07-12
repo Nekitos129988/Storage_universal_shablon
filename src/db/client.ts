@@ -10,9 +10,11 @@ import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { config } from '../config.ts';
 import {
+	CREATE_CATEGORIES_TABLE_SQL,
 	CREATE_INDEXES_SQL,
 	CREATE_ITEMS_FTS_SQL,
 	CREATE_ITEMS_FTS_TRIGGERS_SQL,
+	CREATE_LOCATIONS_TABLE_SQL,
 	CREATE_TABLE_SQL,
 	CREATE_USERS_INDEX_SQL,
 	CREATE_USERS_TABLE_SQL,
@@ -41,8 +43,21 @@ export function getDb(): Database {
 	db.exec(CREATE_INDEXES_SQL);
 	db.exec(CREATE_ITEMS_FTS_SQL);
 	db.exec(CREATE_ITEMS_FTS_TRIGGERS_SQL);
+	db.exec(CREATE_CATEGORIES_TABLE_SQL);
+	db.exec(CREATE_LOCATIONS_TABLE_SQL);
 	db.exec(CREATE_USERS_TABLE_SQL);
 	db.exec(CREATE_USERS_INDEX_SQL);
+
+	// Миграция справочников: для существующей БД заполняем категории/локации
+	// из уникальных значений items. На свежей БД здесь 0 строк в items.
+	const { catN } = db.prepare('SELECT COUNT(*) as catN FROM categories').get() as { catN: number };
+	if (catN === 0) {
+		db.exec('INSERT INTO categories(name) SELECT DISTINCT category FROM items');
+	}
+	const { locN } = db.prepare('SELECT COUNT(*) as locN FROM locations').get() as { locN: number };
+	if (locN === 0) {
+		db.exec('INSERT INTO locations(name) SELECT DISTINCT location FROM items');
+	}
 
 	// Миграция FTS: для уже существующей БД (items заполнен, а items_fts пуст)
 	// перестраиваем полнотекстовый индекс из источника. На свежей БД здесь 0 строк.

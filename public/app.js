@@ -245,11 +245,27 @@ async function onDelete(id) {
 }
 
 // --- Рендер: форма добавления/редактирования --------------------------------
-function renderForm(mode, item = null) {
+async function renderForm(mode, item = null) {
 	const isEdit = mode === 'edit';
 	const heading = isEdit ? `Редактирование товара #${item.id}` : 'Добавление товара';
 	const icon = isEdit ? 'pen' : 'plus';
 	const btnText = isEdit ? 'Обновить' : 'Сохранить';
+
+	// Категории и локации — из справочников API (нормализация).
+	$('#app').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+	let categories = [];
+	let locations = [];
+	try {
+		[categories, locations] = await Promise.all([
+			api('/categories').then((d) => d.categories),
+			api('/locations').then((d) => d.locations),
+		]);
+	} catch (e) {
+		$('#app').innerHTML = `<div class="alert alert-danger">${escapeHtml(e.message)}</div>`;
+		return;
+	}
+	const catOpts = optionsFrom(categories, item?.category);
+	const locOpts = optionsFrom(locations, item?.location);
 
 	$('#app').innerHTML = `
     <div class="row justify-content-center"><div class="col-12 col-md-8 col-lg-6">
@@ -266,11 +282,11 @@ function renderForm(mode, item = null) {
                         <div class="col-12"><label class="form-label">Название товара <span class="req">*</span></label>
                             <input type="text" class="form-control" name="name" value="${item ? escapeHtml(item.name) : ''}" required></div>
                         <div class="col-12 col-sm-6"><label class="form-label">Категория <span class="req">*</span></label>
-                            <select class="form-select" name="category" required>${categoryOptions(item?.category)}</select></div>
+                            <select class="form-select" name="category" required>${catOpts}</select></div>
                         <div class="col-6 col-sm-3"><label class="form-label">Кол-во <span class="req">*</span></label>
                             <input type="number" class="form-control" name="quantity" value="${item ? item.quantity : ''}" min="0" step="1" required></div>
                         <div class="col-6 col-sm-3"><label class="form-label">Место <span class="req">*</span></label>
-                            <select class="form-select" name="location" required>${locationOptions(item?.location)}</select></div>
+                            <select class="form-select" name="location" required>${locOpts}</select></div>
                         <div class="col-12"><label class="form-label">Описание</label>
                             <textarea class="form-control" name="description" rows="3" placeholder="Дополнительная информация...">${item ? escapeHtml(item.description || '') : ''}</textarea></div>
                         <div class="col-12"><hr style="border-color:var(--border)"><div class="d-flex flex-wrap gap-2">
@@ -308,13 +324,11 @@ function renderForm(mode, item = null) {
 	});
 }
 
-function categoryOptions(selected) {
-	const cats = ['Техника', 'Мебель', 'Расходники', 'Канцелярия', 'Другое'];
-	return cats.map((c) => `<option value="${c}" ${selected === c ? 'selected' : ''}>${c}</option>`).join('');
-}
-function locationOptions(selected) {
-	const locs = ['Склад А', 'Склад Б', 'Офис 101', 'Офис 202', 'Серверная'];
-	return locs.map((l) => `<option value="${l}" ${selected === l ? 'selected' : ''}>${l}</option>`).join('');
+/** <option>-ы из списка значений справочника (категории/локации тянутся из API). */
+function optionsFrom(values, selected) {
+	return values
+		.map((v) => `<option value="${escapeHtml(v)}" ${selected === v ? 'selected' : ''}>${escapeHtml(v)}</option>`)
+		.join('');
 }
 
 // --- Навбар в зависимости от состояния входа --------------------------------
@@ -472,6 +486,7 @@ function renderAdminPage(users) {
             <h1 class="page-title"><i class="fas fa-users-cog me-1" style="color:var(--accent)"></i>Управление пользователями</h1>
             <span class="count-pill ms-2">${users.length} чел.</span>
             ${pendingHint}
+            <a href="#/admin/catalog" class="btn btn-outline-secondary btn-sm ms-auto"><i class="fas fa-tags me-1"></i>Справочники</a>
         </div>
         <div class="card"><div class="card-body p-0"><div class="table-responsive">
             <table class="table table-hover mb-0" style="min-width:640px;">
@@ -535,6 +550,108 @@ async function onDeleteUser(id) {
 	}
 }
 
+// --- Админка: справочники категорий/локаций ---------------------------------
+async function renderCatalog() {
+	$('#app').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+	let cats;
+	let locs;
+	try {
+		[cats, locs] = await Promise.all([api('/admin/categories'), api('/admin/locations')]);
+	} catch (e) {
+		$('#app').innerHTML = `<div class="alert alert-danger">${escapeHtml(e.message)}</div>`;
+		return;
+	}
+	$('#app').innerHTML = `
+    <div class="row"><div class="col-12">
+        <div class="d-flex align-items-center flex-wrap mb-3 mb-sm-4">
+            <h1 class="page-title"><i class="fas fa-tags me-1" style="color:var(--accent)"></i>Справочники</h1>
+            <a href="#/admin" class="btn btn-outline-secondary btn-sm ms-auto"><i class="fas fa-users me-1"></i>Пользователи</a>
+        </div>
+        <div class="row g-3">
+            <div class="col-12 col-lg-6">${catalogCard('categories', 'Категории', cats)}</div>
+            <div class="col-12 col-lg-6">${catalogCard('locations', 'Локации', locs)}</div>
+        </div>
+        <div class="text-muted small mt-3">Переименование меняет значение у всех товаров. Нельзя удалить значение, которое используется.</div>
+    </div></div>`;
+
+	document.querySelectorAll('.catalog-add-form').forEach((form) => {
+		form.addEventListener('submit', (e) => {
+			e.preventDefault();
+			onAddCatalog(form.dataset.table, form.querySelector('input').value);
+		});
+	});
+	document
+		.querySelectorAll('.cat-rename')
+		.forEach((b) =>
+			b.addEventListener('click', () => onRenameCatalog(b.dataset.table, Number(b.dataset.id), b.dataset.name)),
+		);
+	document
+		.querySelectorAll('.cat-delete')
+		.forEach((b) =>
+			b.addEventListener('click', () => onDeleteCatalog(b.dataset.table, Number(b.dataset.id), b.dataset.name)),
+		);
+}
+
+function catalogCard(table, label, entries) {
+	const rows = entries
+		.map(
+			(e) => `<tr>
+			<td>${escapeHtml(e.name)}</td>
+			<td class="text-center" style="white-space:nowrap;">
+				<button class="btn btn-sm btn-action cat-rename" data-table="${table}" data-id="${e.id}" data-name="${escapeHtml(
+					e.name,
+				)}" title="Переименовать"><i class="fas fa-pen"></i></button>
+				<button class="btn btn-sm btn-action btn-danger cat-delete" data-table="${table}" data-id="${e.id}" data-name="${escapeHtml(
+					e.name,
+				)}" title="Удалить"><i class="fas fa-trash"></i></button>
+			</td>
+		</tr>`,
+		)
+		.join('');
+	return `
+		<div class="card"><div class="card-body">
+			<h5 class="page-title mb-3">${escapeHtml(label)} <span class="count-pill">${entries.length}</span></h5>
+			<form class="catalog-add-form d-flex gap-2 mb-3" data-table="${table}">
+				<input type="text" class="form-control form-control-sm" placeholder="Новое значение…" maxlength="100" required>
+				<button type="submit" class="btn btn-primary btn-sm" title="Добавить"><i class="fas fa-plus"></i></button>
+			</form>
+			<div class="table-responsive"><table class="table table-sm mb-0"><tbody>
+				${rows || '<tr><td class="text-center text-muted py-3">Пусто</td></tr>'}
+			</tbody></table></div>
+		</div></div>`;
+}
+
+async function onAddCatalog(table, name) {
+	try {
+		await api(`/admin/${table}`, { method: 'POST', body: JSON.stringify({ name }) });
+		flash('Добавлено');
+		renderCatalog();
+	} catch (e) {
+		flash(e.message, 'danger');
+	}
+}
+async function onRenameCatalog(table, id, oldName) {
+	const newName = prompt('Новое название:', oldName);
+	if (newName === null) return;
+	try {
+		await api(`/admin/${table}/${id}`, { method: 'PUT', body: JSON.stringify({ name: newName }) });
+		flash('Переименовано');
+		renderCatalog();
+	} catch (e) {
+		flash(e.message, 'danger');
+	}
+}
+async function onDeleteCatalog(table, id, name) {
+	if (!confirm(`Удалить «${name}»?`)) return;
+	try {
+		await api(`/admin/${table}/${id}`, { method: 'DELETE' });
+		flash('Удалено');
+		renderCatalog();
+	} catch (e) {
+		flash(e.message, 'danger');
+	}
+}
+
 // --- Выход -------------------------------------------------------------------
 async function onLogout() {
 	try {
@@ -565,7 +682,7 @@ async function router() {
 		return;
 	}
 	// Админка доступна только администратору.
-	if (path === 'admin' && !isAdmin()) {
+	if (path.startsWith('admin') && !isAdmin()) {
 		flash('Недостаточно прав для доступа к разделу администрирования', 'danger');
 		location.hash = '#/';
 		return;
@@ -582,6 +699,10 @@ async function router() {
 	}
 	if (path === 'admin') {
 		renderAdmin();
+		return;
+	}
+	if (path === 'admin/catalog') {
+		renderCatalog();
 		return;
 	}
 

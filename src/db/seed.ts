@@ -116,6 +116,9 @@ export function seedIfEmpty(): boolean {
 			item.date_added,
 		);
 	}
+	// Наполняем справочники категорий/локаций из добавленных товаров.
+	db.exec('INSERT OR IGNORE INTO categories(name) SELECT DISTINCT category FROM items');
+	db.exec('INSERT OR IGNORE INTO locations(name) SELECT DISTINCT location FROM items');
 	return true;
 }
 
