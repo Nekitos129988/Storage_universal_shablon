@@ -15,11 +15,11 @@ import type { ItemInput } from '../db/schema.ts';
 
 /** TypeBox-схема тела запроса для create/update. */
 const itemBodySchema = t.Object({
-	name: t.String({ minLength: 1, error: 'Название товара обязательно' }),
-	category: t.String({ minLength: 1, error: 'Категория обязательна' }),
+	name: t.String({ minLength: 1, maxLength: 200, error: 'Название товара обязательно (до 200 символов)' }),
+	category: t.String({ minLength: 1, maxLength: 100, error: 'Категория обязательна (до 100 символов)' }),
 	quantity: t.Integer({ minimum: 0, error: 'Количество должно быть целым неотрицательным числом' }),
-	location: t.String({ minLength: 1, error: 'Местоположение обязательно' }),
-	description: t.Optional(t.String()),
+	location: t.String({ minLength: 1, maxLength: 100, error: 'Местоположение обязательно (до 100 символов)' }),
+	description: t.Optional(t.String({ maxLength: 2000 })),
 });
 
 /** TypeBox-схема query-параметров для списка. */

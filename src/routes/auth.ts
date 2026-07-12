@@ -38,8 +38,8 @@ export const authRoutes = new Elysia()
 				},
 				{
 					body: t.Object({
-						username: t.String({ minLength: 3, error: 'Имя пользователя — минимум 3 символа' }),
-						password: t.String({ minLength: 6, error: 'Пароль — минимум 6 символов' }),
+						username: t.String({ minLength: 3, maxLength: 50, error: 'Имя пользователя — 3–50 символов' }),
+						password: t.String({ minLength: 6, maxLength: 1000, error: 'Пароль — 6–1000 символов' }),
 					}),
 					detail: { tags: ['Аутентификация'], summary: 'Регистрация нового пользователя (требует подтверждения)' },
 				},

@@ -19,6 +19,12 @@ import { BadRequest, NotFound } from '../utils/httpErrors.ts';
 /** Поля, по которым разрешена сортировка (whitelist против SQL-инъекций). */
 const SORTABLE_FIELDS = new Set(['id', 'name', 'category', 'quantity', 'location', 'date_added']);
 
+/** Лимиты длины текстовых полей товара (защита от безлимитной записи). */
+const ITEM_NAME_MAX = 200;
+const ITEM_CATEGORY_MAX = 100;
+const ITEM_LOCATION_MAX = 100;
+const ITEM_DESCRIPTION_MAX = 2000;
+
 export interface ItemListQuery {
 	page?: string;
 	per_page?: string;
@@ -243,5 +249,17 @@ function validateInput(input: ItemInput): void {
 	}
 	if (!Number.isInteger(input.quantity) || input.quantity < 0) {
 		throw BadRequest('Количество должно быть целым неотрицательным числом');
+	}
+	if (input.name.length > ITEM_NAME_MAX) {
+		throw BadRequest(`Название слишком длинное (макс. ${ITEM_NAME_MAX} символов)`);
+	}
+	if (input.category.length > ITEM_CATEGORY_MAX) {
+		throw BadRequest(`Категория слишком длинная (макс. ${ITEM_CATEGORY_MAX} символов)`);
+	}
+	if (input.location.length > ITEM_LOCATION_MAX) {
+		throw BadRequest(`Местоположение слишком длинное (макс. ${ITEM_LOCATION_MAX} символов)`);
+	}
+	if (input.description && input.description.length > ITEM_DESCRIPTION_MAX) {
+		throw BadRequest(`Описание слишком длинное (макс. ${ITEM_DESCRIPTION_MAX} символов)`);
 	}
 }

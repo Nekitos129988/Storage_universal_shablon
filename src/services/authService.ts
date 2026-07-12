@@ -23,6 +23,10 @@ import { config } from '../config.ts';
 const DUMMY_HASH =
 	'$argon2id$v=19$m=65536,t=3,p=4$AAAAAAAAAAAAAAAAAAAAAA$RfalGZmT8nTpYwi0jFvL6d+Z4DqA9KZQ7xqF2QyKjOA';
 
+/** Лимиты учётных данных (защита от безлимитной записи и злоупотреблений). */
+export const USERNAME_MAX = 50;
+export const PASSWORD_MAX = 1000;
+
 // --- base64url helpers ------------------------------------------------------
 
 const b64urlEncode = (s: string): string => Buffer.from(s, 'utf8').toString('base64url');
@@ -111,6 +115,12 @@ function validateCredentials(username: string, password: string): void {
 	}
 	if (!password || password.length < 6) {
 		throw BadRequest('Пароль должен содержать минимум 6 символов');
+	}
+	if (username.length > USERNAME_MAX) {
+		throw BadRequest(`Имя пользователя слишком длинное (макс. ${USERNAME_MAX} символов)`);
+	}
+	if (password.length > PASSWORD_MAX) {
+		throw BadRequest(`Пароль слишком длинный (макс. ${PASSWORD_MAX} символов)`);
 	}
 }
 
