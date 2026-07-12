@@ -7,6 +7,7 @@ import { Elysia, status as setStatus } from 'elysia';
 import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
 import { existsSync, statSync } from 'node:fs';
+import { resolve, sep } from 'node:path';
 
 /** Минимальная таблица MIME для раздачи статики. */
 const MIME: Record<string, string> = {
@@ -26,7 +27,7 @@ function mimeFor(filePath: string): string {
 	return MIME[ext] ?? 'application/octet-stream';
 }
 import { config } from './config.ts';
-import { getDb } from './db/client.ts';
+import { closeDb, getDb } from './db/client.ts';
 import { seedIfEmpty } from './db/seed.ts';
 import { itemsRoutes } from './routes/items.ts';
 import { metaRoutes } from './routes/meta.ts';
@@ -43,8 +44,11 @@ const seeded = seedIfEmpty();
 if (seeded) console.log('✅ БД инициализирована тестовыми данными');
 
 // --- Приложение -------------------------------------------------------------
+// Абсолютный корень статики: все отдаваемые файлы обязаны лежать внутри него.
+const PUBLIC_ROOT = resolve(process.cwd(), 'public');
+
 const app = new Elysia()
-	// Регистрируем кастомный класс ошибки, чтобы Elysia его распознавала.
+	// Регистрируем кастомный класс ошибки, чтобы Elysia его распознавал.
 	.error({ HTTP_ERROR: HttpError })
 	// Единый формат ошибок. Ставится ПЕРВЫМ, чтобы перехватывать всё.
 	.onError(({ code, error }) => {
@@ -71,11 +75,16 @@ const app = new Elysia()
 			origin: config.corsOrigin,
 			methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 		}),
-	)
-	// Документация API: http://host:port/swagger
-	.use(swagger({ path: '/swagger', documentation: { info: { title: 'Инвентарь офиса API', version: '1.0.0' } } }))
-		// Мягкая глобальная защита REST API от злоупотреблений (только для /api/*).
-		.use(globalRateLimit)
+	);
+
+// Swagger только вне production: не светим структуру API публично.
+if (!config.isProd) {
+	app.use(swagger({ path: '/swagger', documentation: { info: { title: 'Инвентарь офиса API', version: '1.0.0' } } }));
+}
+
+app
+	// Мягкая глобальная защита REST API от злоупотреблений (только для /api/*).
+	.use(globalRateLimit)
 	// Healthcheck
 	.get('/health', () => ({ status: 'ok', timestamp: new Date().toISOString() }), {
 		detail: { tags: ['Служебное'], summary: 'Проверка работоспособности' },
@@ -92,20 +101,24 @@ const app = new Elysia()
 	// Фронтенд: отдаём файлы из public/ вручную (staticPlugin в Elysia 1.4
 	// конфликтует с response-валидацией для Bun.file, поэтому обходимся простым роутом).
 	.get('*', ({ set, path }) => {
-		// Нормализуем путь и защищаемся от выхода за пределы public/.
+		// Нормализуем путь запроса (декодируем %XX, убираем query/fragment, схлопываем слеши).
 		const clean = decodeURIComponent(path).replace(/[?#].*$/, '').replace(/\/+/g, '/');
-		const safe = clean.replace(/^(\.\.)+/, '').replace(/\.\.\//g, '');
-		const filePath = `public${safe === '/' ? '/index.html' : safe}`;
+		const rel = clean === '/' ? 'index.html' : clean;
+		// resolve схлопывает любые '..' и нормализует сепараторы (включая обратные
+		// слеши на Windows). Далее обязательная проверка, что итог внутри PUBLIC_ROOT —
+		// это и есть защита от path traversal (независимо от кодировок и платформы).
+		const resolved = resolve(PUBLIC_ROOT, '.' + rel);
+		const inside = resolved === PUBLIC_ROOT || resolved.startsWith(PUBLIC_ROOT + sep);
 
 		// Проверяем существование файла через fs (Bun.file().exists() бросает
 		// исключение ENOENT на «директорию-подобных» путях, поэтому не используем его).
-		if (existsSync(filePath) && statSync(filePath).isFile()) {
-			set.headers['content-type'] = mimeFor(filePath);
-			return Bun.file(filePath);
+		if (inside && existsSync(resolved) && statSync(resolved).isFile()) {
+			set.headers['content-type'] = mimeFor(resolved);
+			return Bun.file(resolved);
 		}
 		// SPA-fallback: любой незнакомый GET отдаёт index.html.
 		set.headers['content-type'] = 'text/html; charset=utf-8';
-		return Bun.file('public/index.html');
+		return Bun.file(resolve(PUBLIC_ROOT, 'index.html'));
 	});
 
 // --- Запуск (async — argon2-хеширование при bootstrap админа асинхронно) -------
@@ -119,12 +132,22 @@ async function main() {
 		console.log('═══════════════════════════════════════════════');
 		console.log(`  Сайт:        http://${server.hostname}:${server.port}`);
 		console.log(`  API:         http://${server.hostname}:${server.port}${config.apiPrefix}/items`);
-		console.log(`  Документация: http://${server.hostname}:${server.port}/swagger`);
+		if (!config.isProd) console.log(`  Документация: http://${server.hostname}:${server.port}/swagger`);
 		console.log(`  Health:      http://${server.hostname}:${server.port}/health`);
 		console.log('───────────────────────────────────────────────');
 		console.log(`  Режим: ${config.isProd ? 'production' : 'development'} | БД: ${config.dbPath}`);
 		console.log('═══════════════════════════════════════════════');
+
+		// Корректная остановка по сигналу: перестаём принимать запросы и закрываем БД.
+		const shutdown = (sig: string) => {
+			console.log(`\n⚠️  ${sig} получен — корректная остановка...`);
+			server.stop();
+			closeDb();
+			process.exit(0);
+		};
+		process.on('SIGTERM', () => shutdown('SIGTERM'));
+		process.on('SIGINT', () => shutdown('SIGINT'));
 	});
 }
 
-main();
+if (import.meta.main) main();
