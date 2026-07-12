@@ -5,7 +5,7 @@
  * исходников, чтобы config.ts подхватил их при первом вычислении. БД — временный
  * файл, очищается между группами тестов.
  */
-import { test, describe, expect, beforeAll, beforeEach, afterAll } from 'bun:test';
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -186,9 +186,7 @@ describe('items: CRUD, FTS-поиск, лимиты', () => {
 	});
 
 	test('имя длиннее 200 символов отклоняется', () => {
-		expect(() =>
-			items.createItem({ name: 'я'.repeat(201), category: 'C', quantity: 1, location: 'L' }),
-		).toThrow();
+		expect(() => items.createItem({ name: 'я'.repeat(201), category: 'C', quantity: 1, location: 'L' })).toThrow();
 	});
 });
 

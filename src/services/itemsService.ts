@@ -7,14 +7,14 @@
  */
 import { getDb } from '../db/client.ts';
 import type { Item, ItemInput } from '../db/schema.ts';
+import { BadRequest, NotFound } from '../utils/httpErrors.ts';
 import {
 	buildPagination,
 	DEFAULT_PAGE,
 	DEFAULT_PER_PAGE,
-	parsePositiveInt,
 	type PaginationMeta,
+	parsePositiveInt,
 } from '../utils/pagination.ts';
-import { BadRequest, NotFound } from '../utils/httpErrors.ts';
 
 /** Поля, по которым разрешена сортировка (whitelist против SQL-инъекций). */
 const SORTABLE_FIELDS = new Set(['id', 'name', 'category', 'quantity', 'location', 'date_added']);
@@ -221,18 +221,14 @@ export function getStats(): Stats {
 /** Уникальные категории (для выпадающих списков фильтров). */
 export function getCategories(): string[] {
 	const db = getDb();
-	const rows = db
-		.prepare('SELECT DISTINCT category FROM items ORDER BY category')
-		.all() as { category: string }[];
+	const rows = db.prepare('SELECT DISTINCT category FROM items ORDER BY category').all() as { category: string }[];
 	return rows.map((r) => r.category);
 }
 
 /** Уникальные локации. */
 export function getLocations(): string[] {
 	const db = getDb();
-	const rows = db
-		.prepare('SELECT DISTINCT location FROM items ORDER BY location')
-		.all() as { location: string }[];
+	const rows = db.prepare('SELECT DISTINCT location FROM items ORDER BY location').all() as { location: string }[];
 	return rows.map((r) => r.location);
 }
 

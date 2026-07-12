@@ -3,11 +3,12 @@
  *
  * Запуск:  bun run src/index.ts   (или bun run dev для hot-reload)
  */
-import { Elysia, status as setStatus } from 'elysia';
-import { cors } from '@elysiajs/cors';
-import { swagger } from '@elysiajs/swagger';
+
 import { existsSync, statSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
+import { cors } from '@elysiajs/cors';
+import { swagger } from '@elysiajs/swagger';
+import { Elysia, status as setStatus } from 'elysia';
 
 /** Минимальная таблица MIME для раздачи статики. */
 const MIME: Record<string, string> = {
@@ -26,15 +27,16 @@ function mimeFor(filePath: string): string {
 	const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase();
 	return MIME[ext] ?? 'application/octet-stream';
 }
+
 import { config } from './config.ts';
 import { closeDb, getDb } from './db/client.ts';
 import { seedIfEmpty } from './db/seed.ts';
+import { globalRateLimit } from './plugins/rateLimit.ts';
+import { adminRoutes } from './routes/admin.ts';
+import { authRoutes } from './routes/auth.ts';
 import { itemsRoutes } from './routes/items.ts';
 import { metaRoutes } from './routes/meta.ts';
 import { statsRoutes } from './routes/stats.ts';
-import { authRoutes } from './routes/auth.ts';
-import { adminRoutes } from './routes/admin.ts';
-import { globalRateLimit } from './plugins/rateLimit.ts';
 import { bootstrapAdminIfEmpty } from './services/authService.ts';
 import { HttpError } from './utils/httpErrors.ts';
 
@@ -66,7 +68,10 @@ const app = new Elysia()
 		// Всё прочее — 500.
 		console.error('[ERROR]', error);
 		return setStatus(500, {
-			error: { code: 'INTERNAL_ERROR', message: config.isProd ? 'Внутренняя ошибка сервера' : (error as Error).message },
+			error: {
+				code: 'INTERNAL_ERROR',
+				message: config.isProd ? 'Внутренняя ошибка сервера' : (error as Error).message,
+			},
 		});
 	})
 	// CORS
@@ -90,19 +95,23 @@ app
 		detail: { tags: ['Служебное'], summary: 'Проверка работоспособности' },
 	})
 	// REST API под общим префиксом
-	.group(config.apiPrefix, (grp) =>
-		grp
-			.use(authRoutes) // /api/auth/*   (публичные: register/login/logout; me — по cookie)
-			.use(statsRoutes) // /api/stats   (требует вход — guard внутри файла)
-			.use(metaRoutes) // /api/categories, /api/locations (требует вход)
-			.use(itemsRoutes) // /api/items/*  (GET — любая роль; POST/PUT/DELETE — editor/admin)
-			.use(adminRoutes), // /api/admin/*  (только admin — guard внутри файла)
+	.group(
+		config.apiPrefix,
+		(grp) =>
+			grp
+				.use(authRoutes) // /api/auth/*   (публичные: register/login/logout; me — по cookie)
+				.use(statsRoutes) // /api/stats   (требует вход — guard внутри файла)
+				.use(metaRoutes) // /api/categories, /api/locations (требует вход)
+				.use(itemsRoutes) // /api/items/*  (GET — любая роль; POST/PUT/DELETE — editor/admin)
+				.use(adminRoutes), // /api/admin/*  (только admin — guard внутри файла)
 	)
 	// Фронтенд: отдаём файлы из public/ вручную (staticPlugin в Elysia 1.4
 	// конфликтует с response-валидацией для Bun.file, поэтому обходимся простым роутом).
 	.get('*', ({ set, path }) => {
 		// Нормализуем путь запроса (декодируем %XX, убираем query/fragment, схлопываем слеши).
-		const clean = decodeURIComponent(path).replace(/[?#].*$/, '').replace(/\/+/g, '/');
+		const clean = decodeURIComponent(path)
+			.replace(/[?#].*$/, '')
+			.replace(/\/+/g, '/');
 		const rel = clean === '/' ? 'index.html' : clean;
 		// resolve схлопывает любые '..' и нормализует сепараторы (включая обратные
 		// слеши на Windows). Далее обязательная проверка, что итог внутри PUBLIC_ROOT —

@@ -18,5 +18,6 @@ export const Unauthorized = (msg = 'Требуется аутентификац�
 export const Forbidden = (msg = 'Недостаточно прав') => new HttpError(403, msg, 'FORBIDDEN');
 export const NotFound = (msg = 'Ресурс не найден') => new HttpError(404, msg, 'NOT_FOUND');
 export const Conflict = (msg = 'Конфликт') => new HttpError(409, msg, 'CONFLICT');
-export const TooManyRequests = (msg = 'Слишком много запросов, попробуйте позже') => new HttpError(429, msg, 'TOO_MANY_REQUESTS');
+export const TooManyRequests = (msg = 'Слишком много запросов, попробуйте позже') =>
+	new HttpError(429, msg, 'TOO_MANY_REQUESTS');
 export const InternalError = (msg = 'Внутренняя ошибка сервера') => new HttpError(500, msg, 'INTERNAL_ERROR');

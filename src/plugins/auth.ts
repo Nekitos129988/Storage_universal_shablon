@@ -14,8 +14,8 @@
  * упадёт в 400 VALIDATION до того, как гвард успеет вернуть чистый 401.
  */
 import { Elysia } from 'elysia';
-import { verifySessionToken } from '../services/authService.ts';
 import type { PublicUser, Role } from '../db/schema.ts';
+import { verifySessionToken } from '../services/authService.ts';
 import { Forbidden, Unauthorized } from '../utils/httpErrors.ts';
 
 /**

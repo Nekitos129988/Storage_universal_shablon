@@ -7,16 +7,86 @@ import { getDb } from './client.ts';
 import type { Item } from './schema.ts';
 
 const SEED_ITEMS: Omit<Item, 'id'>[] = [
-	{ name: 'Ноутбук Lenovo', category: 'Техника', quantity: 5, location: 'Склад А', description: 'Рабочие ноутбуки для сотрудников', date_added: '2026-01-15' },
-	{ name: 'Офисный стул', category: 'Мебель', quantity: 12, location: 'Офис 101', description: 'Черные, тканевые, кокразябра', date_added: '2026-01-20' },
-	{ name: 'Бумага А4', category: 'Расходники', quantity: 50, location: 'Склад Б', description: 'Пачка 500 листов', date_added: '2026-01-25' },
-	{ name: 'Клавиатура Logitech', category: 'Техника', quantity: 8, location: 'Склад А', description: 'USB проводные, кокразябра', date_added: '2026-02-01' },
-	{ name: 'Шкаф для документов', category: 'Мебель', quantity: 3, location: 'Офис 202', description: 'Металлический', date_added: '2026-02-05' },
-	{ name: 'Ручки шариковые', category: 'Канцелярия', quantity: 100, location: 'Склад Б', description: 'Синие, 0.7 мм', date_added: '2026-02-10' },
-	{ name: 'Монитор 24"', category: 'Техника', quantity: 6, location: 'Склад А', description: 'Full HD, HDMI, кокразябра', date_added: '2026-02-15' },
-	{ name: 'Степлер', category: 'Канцелярия', quantity: 15, location: 'Офис 101', description: 'Красный', date_added: '2026-02-20' },
-	{ name: 'Офисный стол', category: 'Мебель', quantity: 4, location: 'Офис 202', description: 'Деревянный', date_added: '2026-03-01' },
-	{ name: 'Тонер для принтера', category: 'Расходники', quantity: 7, location: 'Склад Б', description: 'HP 85A', date_added: '2026-03-05' },
+	{
+		name: 'Ноутбук Lenovo',
+		category: 'Техника',
+		quantity: 5,
+		location: 'Склад А',
+		description: 'Рабочие ноутбуки для сотрудников',
+		date_added: '2026-01-15',
+	},
+	{
+		name: 'Офисный стул',
+		category: 'Мебель',
+		quantity: 12,
+		location: 'Офис 101',
+		description: 'Черные, тканевые, кокразябра',
+		date_added: '2026-01-20',
+	},
+	{
+		name: 'Бумага А4',
+		category: 'Расходники',
+		quantity: 50,
+		location: 'Склад Б',
+		description: 'Пачка 500 листов',
+		date_added: '2026-01-25',
+	},
+	{
+		name: 'Клавиатура Logitech',
+		category: 'Техника',
+		quantity: 8,
+		location: 'Склад А',
+		description: 'USB проводные, кокразябра',
+		date_added: '2026-02-01',
+	},
+	{
+		name: 'Шкаф для документов',
+		category: 'Мебель',
+		quantity: 3,
+		location: 'Офис 202',
+		description: 'Металлический',
+		date_added: '2026-02-05',
+	},
+	{
+		name: 'Ручки шариковые',
+		category: 'Канцелярия',
+		quantity: 100,
+		location: 'Склад Б',
+		description: 'Синие, 0.7 мм',
+		date_added: '2026-02-10',
+	},
+	{
+		name: 'Монитор 24"',
+		category: 'Техника',
+		quantity: 6,
+		location: 'Склад А',
+		description: 'Full HD, HDMI, кокразябра',
+		date_added: '2026-02-15',
+	},
+	{
+		name: 'Степлер',
+		category: 'Канцелярия',
+		quantity: 15,
+		location: 'Офис 101',
+		description: 'Красный',
+		date_added: '2026-02-20',
+	},
+	{
+		name: 'Офисный стол',
+		category: 'Мебель',
+		quantity: 4,
+		location: 'Офис 202',
+		description: 'Деревянный',
+		date_added: '2026-03-01',
+	},
+	{
+		name: 'Тонер для принтера',
+		category: 'Расходники',
+		quantity: 7,
+		location: 'Склад Б',
+		description: 'HP 85A',
+		date_added: '2026-03-05',
+	},
 ];
 
 /**
@@ -41,5 +111,7 @@ export function seedIfEmpty(): boolean {
 // Если файл запущен напрямую (`bun run src/db/seed.ts`) — заполняем БД.
 if (import.meta.main) {
 	const seeded = seedIfEmpty();
-	console.log(seeded ? `✅ Добавлено тестовых позиций: ${SEED_ITEMS.length}` : 'ℹ️  БД уже содержит данные — сидинг пропущен.');
+	console.log(
+		seeded ? `✅ Добавлено тестовых позиций: ${SEED_ITEMS.length}` : 'ℹ️  БД уже содержит данные — сидинг пропущен.',
+	);
 }

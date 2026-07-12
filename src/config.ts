@@ -5,14 +5,8 @@
  */
 import { randomBytes } from 'node:crypto';
 
-function required(name: string, value: string | undefined): string {
-	if (!value || value.trim() === '') {
-		throw new Error(`Не задана обязательная переменная окружения: ${name}`);
-	}
-	return value.trim();
-}
-
-function parseInt(value: string, fallback: number, min = 1, max = 65535): number {
+/** Парсит целое из строки env с clamping-ом в [min, max]; при неудаче — fallback. */
+function parseClampedInt(value: string, fallback: number, min = 1, max = 65535): number {
 	const n = Number.parseInt(value, 10);
 	if (Number.isNaN(n)) return fallback;
 	return Math.min(Math.max(n, min), max);
@@ -49,7 +43,7 @@ function resolveAdminCredentials(): { username: string; password: string; genera
 const adminCredentials = resolveAdminCredentials();
 
 export const config = {
-	port: parseInt(env.PORT ?? '3000', 3000, 1, 65535),
+	port: parseClampedInt(env.PORT ?? '3000', 3000, 1, 65535),
 	host,
 	dbPath: env.DB_PATH?.trim() || 'data/database.db',
 	corsOrigin: (env.CORS_ORIGIN?.trim() || '*')
@@ -60,15 +54,15 @@ export const config = {
 	isProd,
 	// Сессии / аутентификация
 	sessionSecret: resolveSessionSecret(),
-	sessionTtlHours: parseInt(env.SESSION_TTL_HOURS ?? '12', 12, 1, 24 * 30),
+	sessionTtlHours: parseClampedInt(env.SESSION_TTL_HOURS ?? '12', 12, 1, 24 * 30),
 	cookieSecure: isProd && host !== '127.0.0.1' && host !== 'localhost',
 	// Первый администратор (создаётся при пустой БД)
 	adminUsername: adminCredentials.username,
 	adminPassword: adminCredentials.password,
 	adminPasswordGenerated: adminCredentials.generated,
 	// Ограничение частоты запросов (rate-limit)
-	rateLimitLoginMax: parseInt(env.RATE_LOGIN_MAX ?? '5', 5, 1, 1000),
-	rateLimitLoginWindowMs: parseInt(env.RATE_LOGIN_WINDOW_SEC ?? '60', 60, 1, 3600) * 1000,
-	rateLimitGlobalMax: parseInt(env.RATE_GLOBAL_MAX ?? '300', 300, 1, 100_000),
-	rateLimitGlobalWindowMs: parseInt(env.RATE_GLOBAL_WINDOW_SEC ?? '60', 60, 1, 3600) * 1000,
+	rateLimitLoginMax: parseClampedInt(env.RATE_LOGIN_MAX ?? '5', 5, 1, 1000),
+	rateLimitLoginWindowMs: parseClampedInt(env.RATE_LOGIN_WINDOW_SEC ?? '60', 60, 1, 3600) * 1000,
+	rateLimitGlobalMax: parseClampedInt(env.RATE_GLOBAL_MAX ?? '300', 300, 1, 100_000),
+	rateLimitGlobalWindowMs: parseClampedInt(env.RATE_GLOBAL_WINDOW_SEC ?? '60', 60, 1, 3600) * 1000,
 } as const;

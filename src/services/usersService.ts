@@ -7,8 +7,8 @@
  */
 import { getDb } from '../db/client.ts';
 import type { CreateUserInput, PublicUser, Role, User } from '../db/schema.ts';
-import { PASSWORD_MAX, toPublicUser, USERNAME_MAX } from './authService.ts';
 import { BadRequest, Conflict, Forbidden, NotFound } from '../utils/httpErrors.ts';
+import { PASSWORD_MAX, toPublicUser, USERNAME_MAX } from './authService.ts';
 
 const VALID_ROLES: Role[] = ['admin', 'editor', 'viewer'];
 
@@ -39,7 +39,8 @@ export async function createUser(input: CreateUserInput): Promise<PublicUser> {
 	const username = input.username.trim();
 	if (username.length < 3) throw BadRequest('Имя пользователя должно содержать минимум 3 символа');
 	if (input.password.length < 6) throw BadRequest('Пароль должен содержать минимум 6 символов');
-	if (username.length > USERNAME_MAX) throw BadRequest(`Имя пользователя слишком длинное (макс. ${USERNAME_MAX} символов)`);
+	if (username.length > USERNAME_MAX)
+		throw BadRequest(`Имя пользователя слишком длинное (макс. ${USERNAME_MAX} символов)`);
 	if (input.password.length > PASSWORD_MAX) throw BadRequest(`Пароль слишком длинный (макс. ${PASSWORD_MAX} символов)`);
 	if (!VALID_ROLES.includes(input.role)) throw BadRequest('Недопустимая роль');
 

@@ -16,12 +16,7 @@ export interface PaginationMeta {
 }
 
 /** Безопасно парсит целое из строки запроса с ограничениями. */
-export function parsePositiveInt(
-	value: string | undefined,
-	fallback: number,
-	min: number,
-	max: number,
-): number {
+export function parsePositiveInt(value: string | undefined, fallback: number, min: number, max: number): number {
 	const n = Number.parseInt(value ?? '', 10);
 	if (Number.isNaN(n)) return fallback;
 	return Math.min(Math.max(n, min), max);

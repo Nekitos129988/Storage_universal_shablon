@@ -9,10 +9,10 @@
  * Единственное место, где бросаются ошибки аутентификации — гвард requireAuth/requireRole.
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { getDb } from '../db/client.ts';
-import type { LoginInput, PublicUser, RegisterInput, Role, User } from '../db/schema.ts';
-import { BadRequest, Conflict, Forbidden, Unauthorized } from '../utils/httpErrors.ts';
 import { config } from '../config.ts';
+import { getDb } from '../db/client.ts';
+import type { LoginInput, PublicUser, RegisterInput, User } from '../db/schema.ts';
+import { BadRequest, Conflict, Forbidden, Unauthorized } from '../utils/httpErrors.ts';
 
 /**
  * Валидный argon2id-хеш мусорной строки — нужен, чтобы при отсутствии
@@ -20,8 +20,7 @@ import { config } from '../config.ts';
  * Любой введённый пароль против него даст false. Если строка окажется невалидной —
  * ничего страшного: проверка обёрнута в try/catch в login().
  */
-const DUMMY_HASH =
-	'$argon2id$v=19$m=65536,t=3,p=4$AAAAAAAAAAAAAAAAAAAAAA$RfalGZmT8nTpYwi0jFvL6d+Z4DqA9KZQ7xqF2QyKjOA';
+const DUMMY_HASH = '$argon2id$v=19$m=65536,t=3,p=4$AAAAAAAAAAAAAAAAAAAAAA$RfalGZmT8nTpYwi0jFvL6d+Z4DqA9KZQ7xqF2QyKjOA';
 
 /** Лимиты учётных данных (защита от безлимитной записи и злоупотреблений). */
 export const USERNAME_MAX = 50;
