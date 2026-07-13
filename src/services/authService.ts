@@ -44,6 +44,7 @@ export function toPublicUser(user: User): PublicUser {
 interface SessionPayload {
 	uid: number;
 	exp: number; // Unix-секунды
+	v: number; // token_version пользователя на момент выпуска (для отзыва)
 }
 
 /** Подписывает payload секретом и возвращает HMAC в base64url. */
@@ -62,7 +63,11 @@ function safeEqual(a: string, b: string): boolean {
 /** Создаёт подписанный сессионный токен: `<payloadB64>.<hmacB64>`. */
 export function createSessionToken(user: User): string {
 	const now = Math.floor(Date.now() / 1000);
-	const payload: SessionPayload = { uid: user.id, exp: now + config.sessionTtlHours * 3600 };
+	const payload: SessionPayload = {
+		uid: user.id,
+		exp: now + config.sessionTtlHours * 3600,
+		v: user.token_version,
+	};
 	const payloadB64 = b64urlEncode(JSON.stringify(payload));
 	return `${payloadB64}.${sign(payloadB64)}`;
 }
@@ -83,11 +88,14 @@ export function verifySessionToken(token: string | undefined | null): PublicUser
 
 		const payload = JSON.parse(b64urlDecode(payloadB64)) as SessionPayload;
 		if (typeof payload.exp !== 'number' || payload.exp < Math.floor(Date.now() / 1000)) return null;
-		if (typeof payload.uid !== 'number') return null;
+		if (typeof payload.uid !== 'number' || typeof payload.v !== 'number') return null;
 
 		const user = getUserById(payload.uid);
 		// Если аккаунт деактивирован/ещё не подтверждён — сессия недействительна.
-		return user && user.status === 'active' ? toPublicUser(user) : null;
+		if (user?.status !== 'active') return null;
+		// Версия должна совпадать — иначе сессия отозвана (revokeUserSessions).
+		if (user.token_version !== payload.v) return null;
+		return toPublicUser(user);
 	} catch {
 		return null;
 	}

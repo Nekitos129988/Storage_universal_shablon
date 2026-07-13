@@ -16,7 +16,14 @@ import {
 	renameCatalogEntry,
 } from '../services/catalogService.ts';
 import { listArchivedItems, restoreItem } from '../services/itemsService.ts';
-import { approveUser, createUser, deleteUser, listUsers, updateUserRole } from '../services/usersService.ts';
+import {
+	approveUser,
+	createUser,
+	deleteUser,
+	listUsers,
+	revokeUserSessions,
+	updateUserRole,
+} from '../services/usersService.ts';
 
 /** TypeBox-схема роли. */
 const roleSchema = t.Union([t.Literal('admin'), t.Literal('editor'), t.Literal('viewer')]);
@@ -107,6 +114,10 @@ export const adminRoutes = new Elysia()
 				// POST /admin/users/:id/approve — подтвердить учётную запись (pending → active).
 				.post('/users/:id/approve', ({ params }) => approveUser(Number(params.id)), {
 					detail: { tags: ['Администрирование'], summary: 'Подтвердить учётную запись' },
+				})
+				// POST /admin/users/:id/revoke-sessions — отозвать все сессии пользователя.
+				.post('/users/:id/revoke-sessions', ({ params }) => revokeUserSessions(Number(params.id)), {
+					detail: { tags: ['Администрирование'], summary: 'Отозвать все сессии пользователя' },
 				})
 				// DELETE /admin/users/:id — удалить.
 				.delete(

@@ -67,6 +67,15 @@ export const MIGRATIONS: Migration[] = [
 			}
 		},
 	},
+	{
+		id: 6,
+		name: 'users.token_version (отзыв сессий)',
+		up: (db) => {
+			if (!hasColumn(db, 'users', 'token_version')) {
+				db.exec('ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0');
+			}
+		},
+	},
 ];
 
 const ENSURE_MIGRATIONS_TABLE = `

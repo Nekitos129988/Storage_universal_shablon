@@ -296,6 +296,17 @@ describe('users: правила ролей и защиты последнего 
 		const adminId = auth.getUserByUsername('admin')!.id;
 		expect(() => users.deleteUser(adminId, 999)).toThrow();
 	});
+
+	test('revokeUserSessions инвалидирует ранее выданный токен', () => {
+		const adminId = auth.getUserByUsername('admin')!.id;
+		const token = auth.createSessionToken(auth.getUserByUsername('admin')!);
+		expect(auth.verifySessionToken(token)?.username).toBe('admin');
+		users.revokeUserSessions(adminId);
+		expect(auth.verifySessionToken(token)).toBeNull();
+		// новый токен (с актуальной версией) — валиден
+		const fresh = auth.createSessionToken(auth.getUserByUsername('admin')!);
+		expect(auth.verifySessionToken(fresh)?.username).toBe('admin');
+	});
 });
 
 // --- Гварды авторизации ----------------------------------------------------

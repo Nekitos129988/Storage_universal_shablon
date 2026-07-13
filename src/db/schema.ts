@@ -121,6 +121,7 @@ export interface User {
 	role: Role;
 	status: UserStatus;
 	created_at: string; // ISO-дата/время
+	token_version: number; // bumped для отзыва всех сессий пользователя
 }
 
 /** Безопасная форма пользователя для отдачи клиенту (без password_hash). */
@@ -159,7 +160,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('admin','editor','viewer')),
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','active')),
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    token_version INTEGER NOT NULL DEFAULT 0
 );
 `;
 

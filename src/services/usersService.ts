@@ -107,3 +107,13 @@ export function deleteUser(id: number, currentId: number): void {
 	const db = getDb();
 	db.prepare('DELETE FROM users WHERE id = $id').run({ $id: id });
 }
+
+/**
+ * Отозвать все активные сессии пользователя (инкремент token_version делает
+ * ранее выданные токены невалидными при следующей проверке).
+ */
+export function revokeUserSessions(id: number): void {
+	getRawUserById(id); // NotFound если пользователя нет
+	const db = getDb();
+	db.prepare('UPDATE users SET token_version = token_version + 1 WHERE id = $id').run({ $id: id });
+}
