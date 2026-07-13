@@ -183,7 +183,7 @@ function renderListPage(data, meta) {
         <div class="row mb-3 mb-sm-4 g-2 g-sm-3">
             <div class="col-6 col-md-3"><div class="stats-card"><span class="stat-accent"></span><p class="stat-label">Всего позиций</p><p class="stat-value">${stats.total_items}</p></div></div>
             <div class="col-6 col-md-3"><div class="stats-card"><span class="stat-accent" style="background:var(--ok)"></span><p class="stat-label">Всего единиц</p><p class="stat-value">${stats.total_quantity}</p></div></div>
-            <div class="col-6 col-md-3"><a class="stats-card text-decoration-none" href="#/?low_stock=1"><span class="stat-accent" style="background:var(--danger)"></span><p class="stat-label">Мало на остатке</p><p class="stat-value">${stats.low_stock_count}</p></a></div>
+            <div class="col-6 col-md-3"><a href="#/?low_stock=1" class="text-decoration-none text-reset d-block"><div class="stats-card"><span class="stat-accent" style="background:var(--danger)"></span><p class="stat-label">Мало на остатке</p><p class="stat-value">${stats.low_stock_count}</p></div></a></div>
             <div class="col-12 col-md-3"><div class="stats-card"><span class="stat-accent" style="background:var(--warn)"></span><p class="stat-label">По категориям</p><div class="d-flex flex-wrap gap-1 gap-sm-2">${catBadges}</div></div></div>
         </div>
         <div class="filter-section">
