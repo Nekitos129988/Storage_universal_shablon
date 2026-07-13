@@ -10,6 +10,7 @@ const state = {
 	category: '',
 	location: '',
 	min_quantity: '',
+	low_stock: '',
 	search: '',
 	sort: 'date_added',
 	order: 'desc',
@@ -76,12 +77,19 @@ function buildQuery(extra = {}) {
 	return params.toString();
 }
 
-// --- Бейдж количества (приглушённые статусные тона) ------------------------
-function quantityBadge(q) {
+// --- Бейдж количества (с учётом порога «мало на остатке») -------------------
+function quantityBadge(q, minQ = 0) {
 	let cls = 'badge-ok';
-	if (q <= 5) cls = 'badge-danger';
-	else if (q <= 20) cls = 'badge-warn';
-	return `<span class="badge ${cls}">${q}</span>`;
+	let title = '';
+	if (minQ > 0 && q <= minQ) {
+		cls = 'badge-danger';
+		title = ' title="Мало на остатке"';
+	} else if (q <= 5) {
+		cls = 'badge-danger';
+	} else if (q <= 20) {
+		cls = 'badge-warn';
+	}
+	return `<span class="badge ${cls}"${title}>${q}</span>`;
 }
 
 // --- Рендер: список товаров --------------------------------------------------
@@ -129,7 +137,7 @@ function renderListPage(data, meta) {
                 <td class="text-muted">${it.id}</td>
                 <td><strong>${escapeHtml(it.name)}</strong>${it.description ? `<br><small class="text-muted d-none d-md-inline">${escapeHtml(it.description)}</small>` : ''}</td>
                 <td class="d-none d-sm-table-cell"><span class="badge badge-soft">${escapeHtml(it.category)}</span></td>
-                <td>${quantityBadge(it.quantity)}</td>
+                <td>${quantityBadge(it.quantity, it.min_quantity)}</td>
                 <td class="d-none d-md-table-cell">${escapeHtml(it.location)}</td>
                 <td class="d-none d-lg-table-cell text-muted">${escapeHtml(it.date_added)}</td>
                 ${
@@ -175,7 +183,8 @@ function renderListPage(data, meta) {
         <div class="row mb-3 mb-sm-4 g-2 g-sm-3">
             <div class="col-6 col-md-3"><div class="stats-card"><span class="stat-accent"></span><p class="stat-label">Всего позиций</p><p class="stat-value">${stats.total_items}</p></div></div>
             <div class="col-6 col-md-3"><div class="stats-card"><span class="stat-accent" style="background:var(--ok)"></span><p class="stat-label">Всего единиц</p><p class="stat-value">${stats.total_quantity}</p></div></div>
-            <div class="col-12 col-md-6"><div class="stats-card"><span class="stat-accent" style="background:var(--warn)"></span><p class="stat-label">По категориям</p><div class="d-flex flex-wrap gap-1 gap-sm-2">${catBadges}</div></div></div>
+            <div class="col-6 col-md-3"><a class="stats-card text-decoration-none" href="#/?low_stock=1"><span class="stat-accent" style="background:var(--danger)"></span><p class="stat-label">Мало на остатке</p><p class="stat-value">${stats.low_stock_count}</p></a></div>
+            <div class="col-12 col-md-3"><div class="stats-card"><span class="stat-accent" style="background:var(--warn)"></span><p class="stat-label">По категориям</p><div class="d-flex flex-wrap gap-1 gap-sm-2">${catBadges}</div></div></div>
         </div>
         <div class="filter-section">
             <form id="filter-form" class="row g-2 g-sm-3 align-items-end">
@@ -234,7 +243,7 @@ async function onDelete(id) {
 		try {
 			await api(`/items/${id}`, { method: 'DELETE' });
 			modal.hide();
-			flash('Товар успешно удалён!');
+			flash('Товар перемещён в архив. Восстановить — в админке.');
 			renderList();
 		} catch (e) {
 			modal.hide();
@@ -283,10 +292,12 @@ async function renderForm(mode, item = null) {
                             <input type="text" class="form-control" name="name" value="${item ? escapeHtml(item.name) : ''}" required></div>
                         <div class="col-12 col-sm-6"><label class="form-label">Категория <span class="req">*</span></label>
                             <select class="form-select" name="category" required>${catOpts}</select></div>
+                        <div class="col-12 col-sm-6"><label class="form-label">Место <span class="req">*</span></label>
+                            <select class="form-select" name="location" required>${locOpts}</select></div>
                         <div class="col-6 col-sm-3"><label class="form-label">Кол-во <span class="req">*</span></label>
                             <input type="number" class="form-control" name="quantity" value="${item ? item.quantity : ''}" min="0" step="1" required></div>
-                        <div class="col-6 col-sm-3"><label class="form-label">Место <span class="req">*</span></label>
-                            <select class="form-select" name="location" required>${locOpts}</select></div>
+                        <div class="col-6 col-sm-3"><label class="form-label">Мин. остаток</label>
+                            <input type="number" class="form-control" name="min_quantity" value="${item ? item.min_quantity : 0}" min="0" step="1"></div>
                         <div class="col-12"><label class="form-label">Описание</label>
                             <textarea class="form-control" name="description" rows="3" placeholder="Дополнительная информация...">${item ? escapeHtml(item.description || '') : ''}</textarea></div>
                         <div class="col-12"><hr style="border-color:var(--border)"><div class="d-flex flex-wrap gap-2">
@@ -306,6 +317,7 @@ async function renderForm(mode, item = null) {
 			name: fd.get('name').trim(),
 			category: fd.get('category'),
 			quantity: Number(fd.get('quantity')),
+			min_quantity: Number(fd.get('min_quantity')) || 0,
 			location: fd.get('location'),
 			description: fd.get('description').trim(),
 		};
@@ -470,6 +482,7 @@ function renderAdminPage(users) {
                 <td class="text-center" style="white-space:nowrap;">
                     ${approveBtn}
                     <button class="btn btn-sm btn-action save-role" data-id="${u.id}" ${isSelf ? 'disabled' : ''} title="Сохранить роль"><i class="fas fa-check"></i></button>
+                    <button class="btn btn-sm btn-action revoke-user" data-id="${u.id}" title="Завершить все сессии"><i class="fas fa-power-off"></i></button>
                     <button class="btn btn-sm btn-action btn-danger del-user" data-id="${u.id}" ${isSelf ? 'disabled' : ''} title="Удалить"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>`;
@@ -486,7 +499,10 @@ function renderAdminPage(users) {
             <h1 class="page-title"><i class="fas fa-users-cog me-1" style="color:var(--accent)"></i>Управление пользователями</h1>
             <span class="count-pill ms-2">${users.length} чел.</span>
             ${pendingHint}
-            <a href="#/admin/catalog" class="btn btn-outline-secondary btn-sm ms-auto"><i class="fas fa-tags me-1"></i>Справочники</a>
+            <div class="ms-auto d-flex gap-2">
+                <a href="#/admin/archive" class="btn btn-outline-secondary btn-sm"><i class="fas fa-box-archive me-1"></i>Архив</a>
+                <a href="#/admin/catalog" class="btn btn-outline-secondary btn-sm"><i class="fas fa-tags me-1"></i>Справочники</a>
+            </div>
         </div>
         <div class="card"><div class="card-body p-0"><div class="table-responsive">
             <table class="table table-hover mb-0" style="min-width:640px;">
@@ -513,6 +529,9 @@ function renderAdminPage(users) {
 	document
 		.querySelectorAll('.del-user')
 		.forEach((btn) => btn.addEventListener('click', () => onDeleteUser(Number(btn.dataset.id))));
+	document
+		.querySelectorAll('.revoke-user')
+		.forEach((btn) => btn.addEventListener('click', () => onRevokeUser(Number(btn.dataset.id))));
 }
 
 async function onApproveUser(id) {
@@ -545,6 +564,16 @@ async function onDeleteUser(id) {
 		await api(`/admin/users/${id}`, { method: 'DELETE' });
 		flash('Пользователь удалён');
 		renderAdmin();
+	} catch (e) {
+		flash(e.message, 'danger');
+	}
+}
+
+async function onRevokeUser(id) {
+	if (!confirm('Завершить все сессии этого пользователя?')) return;
+	try {
+		await api(`/admin/users/${id}/revoke-sessions`, { method: 'POST' });
+		flash('Сессии пользователя отозваны');
 	} catch (e) {
 		flash(e.message, 'danger');
 	}
@@ -652,6 +681,58 @@ async function onDeleteCatalog(table, id, name) {
 	}
 }
 
+// --- Админка: архив товаров (soft-delete) -----------------------------------
+async function renderArchive() {
+	$('#app').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+	let data;
+	try {
+		data = await api('/admin/items/archived');
+	} catch (e) {
+		$('#app').innerHTML = `<div class="alert alert-danger">${escapeHtml(e.message)}</div>`;
+		return;
+	}
+	const rows = data.items.length
+		? data.items
+				.map(
+					(it) => `<tr>
+			<td class="text-muted">${it.id}</td>
+			<td><strong>${escapeHtml(it.name)}</strong></td>
+			<td>${escapeHtml(it.category)}</td>
+			<td>${it.quantity}</td>
+			<td class="text-muted small d-none d-md-table-cell">${escapeHtml(it.deleted_at || '')}</td>
+			<td class="text-center"><button class="btn btn-sm btn-action restore-item" data-id="${it.id}" title="Восстановить"><i class="fas fa-rotate-left"></i></button></td>
+		</tr>`,
+				)
+				.join('')
+		: '<tr><td colspan="6" class="text-center py-4 text-muted">Архив пуст</td></tr>';
+	$('#app').innerHTML = `
+    <div class="row"><div class="col-12">
+        <div class="d-flex align-items-center flex-wrap mb-3 mb-sm-4">
+            <h1 class="page-title"><i class="fas fa-box-archive me-1" style="color:var(--accent)"></i>Архив товаров</h1>
+            <span class="count-pill ms-2">${data.items.length}</span>
+            <a href="#/admin" class="btn btn-outline-secondary btn-sm ms-auto"><i class="fas fa-arrow-left me-1"></i>В админку</a>
+        </div>
+        <div class="card"><div class="card-body p-0"><div class="table-responsive">
+            <table class="table table-hover mb-0"><thead><tr>
+                <th>#</th><th>Название</th><th>Категория</th><th>Кол-во</th><th class="d-none d-md-table-cell">Удалён</th><th class="text-center">Действие</th>
+            </tr></thead><tbody>${rows}</tbody></table>
+        </div></div></div>
+    </div></div>`;
+	document
+		.querySelectorAll('.restore-item')
+		.forEach((btn) => btn.addEventListener('click', () => onRestoreItem(Number(btn.dataset.id))));
+}
+
+async function onRestoreItem(id) {
+	try {
+		await api(`/admin/items/${id}/restore`, { method: 'POST' });
+		flash('Товар восстановлен из архива');
+		renderArchive();
+	} catch (e) {
+		flash(e.message, 'danger');
+	}
+}
+
 // --- Выход -------------------------------------------------------------------
 async function onLogout() {
 	try {
@@ -705,12 +786,17 @@ async function router() {
 		renderCatalog();
 		return;
 	}
+	if (path === 'admin/archive') {
+		renderArchive();
+		return;
+	}
 
 	// --- Парсим query-параметры в состояние (для списка товаров) ------------
 	const params = new URLSearchParams(queryString || '');
 	state.category = params.get('category') || '';
 	state.location = params.get('location') || '';
 	state.min_quantity = params.get('min_quantity') || '';
+	state.low_stock = params.get('low_stock') || '';
 	state.search = params.get('search') || '';
 	state.sort = params.get('sort') || 'date_added';
 	state.order = params.get('order') || 'desc';
