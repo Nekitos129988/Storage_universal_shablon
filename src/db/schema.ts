@@ -12,6 +12,7 @@ export interface Item {
 	date_added: string; // ISO-дата 'YYYY-MM-DD'
 	created_by: number | null; // id пользователя, создавшего запись
 	updated_at: string | null; // ISO-datetime последнего изменения
+	deleted_at: string | null; // ISO-datetime мягкого удаления (null = активен)
 }
 
 /** Данные для создания/обновления товара (без id и date_added). */
@@ -23,7 +24,7 @@ export type ItemInput = {
 	description?: string;
 };
 
-/** DDL — создание таблицы. created_by/updated_at — аудит (без FK, валидация на уровне приложения). */
+/** DDL — создание таблицы. created_by/updated_at/deleted_at — аудит и soft-delete (без FK). */
 export const CREATE_TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,7 +35,8 @@ CREATE TABLE IF NOT EXISTS items (
     description TEXT,
     date_added DATE NOT NULL,
     created_by INTEGER,
-    updated_at TEXT
+    updated_at TEXT,
+    deleted_at TEXT
 );
 `;
 

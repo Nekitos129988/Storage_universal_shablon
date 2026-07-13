@@ -51,6 +51,13 @@ export const MIGRATIONS: Migration[] = [
 			}
 		},
 	},
+	{
+		id: 4,
+		name: 'items.deleted_at (soft-delete)',
+		up: (db) => {
+			if (!hasColumn(db, 'items', 'deleted_at')) db.exec('ALTER TABLE items ADD COLUMN deleted_at TEXT');
+		},
+	},
 ];
 
 const ENSURE_MIGRATIONS_TABLE = `

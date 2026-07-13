@@ -89,7 +89,8 @@ export function listItems(query: ItemListQuery): ItemListResult {
 	const db = getDb();
 
 	// Динамически собираем WHERE только для переданных фильтров.
-	const conditions: string[] = [];
+	// Базовое условие: исключаем архив (soft-delete).
+	const conditions: string[] = ['items.deleted_at IS NULL'];
 	const params: Record<string, string | number | null> = {};
 
 	if (query.category) {
@@ -139,10 +140,10 @@ export function listItems(query: ItemListQuery): ItemListResult {
 	};
 }
 
-/** Один товар по id. */
+/** Один товар по id (архивные — не возвращаются, выбрасывают NotFound). */
 export function getItemById(id: number): Item {
 	const db = getDb();
-	const item = db.prepare('SELECT * FROM items WHERE id = $id').get({ $id: id }) as Item | null;
+	const item = db.prepare('SELECT * FROM items WHERE id = $id AND deleted_at IS NULL').get({ $id: id }) as Item | null;
 	if (!item) throw NotFound(`Товар с id=${id} не найден`);
 	return item;
 }
@@ -196,24 +197,46 @@ export function updateItem(id: number, input: ItemInput): Item {
 	return getItemById(id);
 }
 
-/** Удаление товара. */
+/** Мягкое удаление товара (перемещение в архив). Восстановление — restoreItem. */
 export function deleteItem(id: number): void {
-	getItemById(id); // NotFound если не существует
+	getItemById(id); // NotFound если не существует (или уже в архиве)
 	const db = getDb();
-	db.prepare('DELETE FROM items WHERE id = $id').run({ $id: id });
+	db.prepare('UPDATE items SET deleted_at = $now WHERE id = $id AND deleted_at IS NULL').run({
+		$id: id,
+		$now: new Date().toISOString(),
+	});
 }
 
-/** Статистика по всем товарам. */
+/** Архивные товары (для админ-раздела). */
+export function listArchivedItems(): Item[] {
+	const db = getDb();
+	return db.prepare('SELECT * FROM items WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC').all() as Item[];
+}
+
+/** Восстановить товар из архива. */
+export function restoreItem(id: number): Item {
+	const db = getDb();
+	const res = db
+		.prepare('UPDATE items SET deleted_at = NULL WHERE id = $id AND deleted_at IS NOT NULL')
+		.run({ $id: id });
+	if (res.changes === 0) throw NotFound(`Архивная запись с id=${id} не найдена`);
+	return getItemById(id);
+}
+
+/** Статистика по всем активным товарам (архив исключён). */
 export function getStats(): Stats {
 	const db = getDb();
 	const totals = db
-		.prepare('SELECT COUNT(*) as total_items, COALESCE(SUM(quantity), 0) as total_quantity FROM items')
+		.prepare(
+			'SELECT COUNT(*) as total_items, COALESCE(SUM(quantity), 0) as total_quantity FROM items WHERE deleted_at IS NULL',
+		)
 		.get() as { total_items: number; total_quantity: number };
 
 	const categories = db
 		.prepare(
 			`SELECT category, COUNT(*) as count, SUM(quantity) as total_quantity
 			 FROM items
+			 WHERE deleted_at IS NULL
 			 GROUP BY category
 			 ORDER BY total_quantity DESC`,
 		)

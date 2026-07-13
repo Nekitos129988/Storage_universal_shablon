@@ -15,6 +15,7 @@ import {
 	listCatalog,
 	renameCatalogEntry,
 } from '../services/catalogService.ts';
+import { listArchivedItems, restoreItem } from '../services/itemsService.ts';
 import { approveUser, createUser, deleteUser, listUsers, updateUserRole } from '../services/usersService.ts';
 
 /** TypeBox-схема роли. */
@@ -117,6 +118,13 @@ export const adminRoutes = new Elysia()
 					},
 					{ detail: { tags: ['Администрирование'], summary: 'Удалить пользователя' } },
 				)
+				// Архив товаров (soft-delete): список + восстановление.
+				.get('/items/archived', () => ({ items: listArchivedItems() }), {
+					detail: { tags: ['Администрирование'], summary: 'Архив товаров' },
+				})
+				.post('/items/:id/restore', ({ params }) => restoreItem(Number(params.id)), {
+					detail: { tags: ['Администрирование'], summary: 'Восстановить товар из архива' },
+				})
 				// Справочники категорий и локаций (CRUD).
 				.use(catalogGroup('/categories', 'categories'))
 				.use(catalogGroup('/locations', 'locations')),

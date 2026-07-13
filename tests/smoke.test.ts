@@ -200,6 +200,33 @@ describe('items: CRUD, FTS-поиск, лимиты', () => {
 		expect(() => items.getItemById(it.id)).toThrow();
 	});
 
+	test('soft-delete: удаление скрывает товар, но он остаётся в архиве', () => {
+		const it = items.createItem({ name: 'Архивное', category: 'C', quantity: 1, location: 'L' });
+		items.deleteItem(it.id);
+		// в активном списке — нет
+		expect(items.listItems({ per_page: '100' }).items.find((x) => x.id === it.id)).toBeUndefined();
+		// в архиве — есть
+		const archived = items.listArchivedItems();
+		expect(archived.find((x) => x.id === it.id)?.name).toBe('Архивное');
+	});
+
+	test('soft-delete: восстановление возвращает товар в активный список', () => {
+		const it = items.createItem({ name: 'Восстанавливаемое', category: 'C', quantity: 1, location: 'L' });
+		items.deleteItem(it.id);
+		const restored = items.restoreItem(it.id);
+		expect(restored.deleted_at).toBeNull();
+		expect(items.getItemById(it.id).name).toBe('Восстанавливаемое');
+	});
+
+	test('soft-delete: getStats не учитывает архивные', () => {
+		items.createItem({ name: 'Активное', category: 'C', quantity: 5, location: 'L' });
+		const toArchive = items.createItem({ name: 'В архив', category: 'C', quantity: 3, location: 'L' });
+		items.deleteItem(toArchive.id);
+		const s = items.getStats();
+		// из двух созданных один в архиве → в статистике только активный
+		expect(s.total_quantity).toBe(5);
+	});
+
 	test('getStats считает позиции и единицы', () => {
 		items.createItem({ name: 'A', category: 'Техника', quantity: 3, location: 'L' });
 		items.createItem({ name: 'B', category: 'Техника', quantity: 7, location: 'L' });

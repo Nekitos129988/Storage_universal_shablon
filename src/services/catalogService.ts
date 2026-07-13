@@ -101,15 +101,15 @@ export function renameCatalogEntry(table: CatalogTable, id: number, newName: str
 	return getEntry(t, id);
 }
 
-/** Удалить запись. Нельзя, если есть товары с этим значением (→ Conflict). */
+/** Удалить запись. Нельзя, если есть активные товары с этим значением (→ Conflict). */
 export function deleteCatalogEntry(table: CatalogTable, id: number): void {
 	const t = tableOf(table);
 	const col = ITEMS_COLUMN[t];
 	const existing = getEntry(t, id);
 	const db = getDb();
-	const { n } = db.prepare(`SELECT COUNT(*) as n FROM items WHERE ${col} = $name`).get({ $name: existing.name }) as {
-		n: number;
-	};
+	const { n } = db
+		.prepare(`SELECT COUNT(*) as n FROM items WHERE ${col} = $name AND deleted_at IS NULL`)
+		.get({ $name: existing.name }) as { n: number };
 	if (n > 0) throw Conflict(`Нельзя удалить: используется в ${n} запис${n === 1 ? 'и' : 'ях'} товаров`);
 	db.prepare(`DELETE FROM ${t} WHERE id = $id`).run({ $id: id });
 }
