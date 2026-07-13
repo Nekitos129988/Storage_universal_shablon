@@ -239,6 +239,24 @@ describe('items: CRUD, FTS-поиск, лимиты', () => {
 	test('имя длиннее 200 символов отклоняется', () => {
 		expect(() => items.createItem({ name: 'я'.repeat(201), category: 'C', quantity: 1, location: 'L' })).toThrow();
 	});
+
+	test('min_quantity сохраняется и по умолчанию 0', () => {
+		const a = items.createItem({ name: 'С порогом', category: 'C', quantity: 2, location: 'L', min_quantity: 5 });
+		expect(a.min_quantity).toBe(5);
+		const b = items.createItem({ name: 'Без порога', category: 'C', quantity: 2, location: 'L' });
+		expect(b.min_quantity).toBe(0);
+	});
+
+	test('low_stock_count и фильтр low_stock', () => {
+		items.createItem({ name: 'Мало', category: 'C', quantity: 2, location: 'L', min_quantity: 5 });
+		items.createItem({ name: 'Достаточно', category: 'C', quantity: 10, location: 'L', min_quantity: 5 });
+		items.createItem({ name: 'Без порога', category: 'C', quantity: 0, location: 'L' });
+		const s = items.getStats();
+		expect(s.low_stock_count).toBe(1);
+		const low = items.listItems({ low_stock: '1', per_page: '50' });
+		expect(low.pagination.total_items).toBe(1);
+		expect(low.items[0].name).toBe('Мало');
+	});
 });
 
 // --- Пользователи: бизнес-правила администрирования ------------------------

@@ -32,6 +32,7 @@ export interface ItemListQuery {
 	category?: string;
 	location?: string;
 	min_quantity?: string;
+	low_stock?: string;
 	search?: string;
 	sort?: string;
 	order?: string;
@@ -47,6 +48,7 @@ export interface Stats {
 	total_items: number;
 	total_quantity: number;
 	categories: CategoryStat[];
+	low_stock_count: number;
 }
 
 export interface ItemListResult {
@@ -108,6 +110,10 @@ export function listItems(query: ItemListQuery): ItemListResult {
 			params.$minQuantity = minQ;
 		}
 	}
+	if (query.low_stock) {
+		// «Мало на остатке»: порог задан (min_quantity > 0) и фактическое количество не выше него.
+		conditions.push('items.min_quantity > 0 AND items.quantity <= items.min_quantity');
+	}
 
 	const search = query.search?.trim() ?? '';
 
@@ -155,8 +161,8 @@ export function createItem(input: ItemInput, userId: number | null = null): Item
 	const now = new Date().toISOString();
 	const result = db
 		.prepare(
-			`INSERT INTO items (name, category, quantity, location, description, date_added, created_by, updated_at)
-			 VALUES ($name, $category, $quantity, $location, $description, $dateAdded, $createdBy, $updatedAt)`,
+			`INSERT INTO items (name, category, quantity, location, description, date_added, created_by, updated_at, min_quantity)
+			 VALUES ($name, $category, $quantity, $location, $description, $dateAdded, $createdBy, $updatedAt, $minQuantity)`,
 		)
 		.run({
 			$name: input.name,
@@ -167,6 +173,7 @@ export function createItem(input: ItemInput, userId: number | null = null): Item
 			$dateAdded: now.slice(0, 10), // 'YYYY-MM-DD'
 			$createdBy: userId,
 			$updatedAt: now,
+			$minQuantity: input.min_quantity ?? 0,
 		});
 
 	return getItemById(Number(result.lastInsertRowid));
@@ -182,7 +189,7 @@ export function updateItem(id: number, input: ItemInput): Item {
 	db.prepare(
 		`UPDATE items
 		 SET name = $name, category = $category, quantity = $quantity,
-		     location = $location, description = $description, updated_at = $updatedAt
+		     location = $location, description = $description, updated_at = $updatedAt, min_quantity = $minQuantity
 		 WHERE id = $id`,
 	).run({
 		$id: id,
@@ -192,6 +199,7 @@ export function updateItem(id: number, input: ItemInput): Item {
 		$location: input.location,
 		$description: input.description ?? null,
 		$updatedAt: new Date().toISOString(),
+		$minQuantity: input.min_quantity ?? 0,
 	});
 
 	return getItemById(id);
@@ -242,7 +250,13 @@ export function getStats(): Stats {
 		)
 		.all() as CategoryStat[];
 
-	return { ...totals, categories };
+	const { low_stock_count } = db
+		.prepare(
+			'SELECT COUNT(*) as low_stock_count FROM items WHERE deleted_at IS NULL AND min_quantity > 0 AND quantity <= min_quantity',
+		)
+		.get() as { low_stock_count: number };
+
+	return { ...totals, categories, low_stock_count };
 }
 
 /** Уникальные категории (для выпадающих списков фильтров). */
@@ -268,6 +282,9 @@ function validateInput(input: ItemInput): void {
 	}
 	if (!Number.isInteger(input.quantity) || input.quantity < 0) {
 		throw BadRequest('Количество должно быть целым неотрицательным числом');
+	}
+	if (input.min_quantity !== undefined && (!Number.isInteger(input.min_quantity) || input.min_quantity < 0)) {
+		throw BadRequest('Минимальный остаток должен быть целым неотрицательным числом');
 	}
 	if (input.name.length > ITEM_NAME_MAX) {
 		throw BadRequest(`Название слишком длинное (макс. ${ITEM_NAME_MAX} символов)`);

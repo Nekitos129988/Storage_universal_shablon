@@ -13,6 +13,7 @@ export interface Item {
 	created_by: number | null; // id пользователя, создавшего запись
 	updated_at: string | null; // ISO-datetime последнего изменения
 	deleted_at: string | null; // ISO-datetime мягкого удаления (null = активен)
+	min_quantity: number; // порог для сигнала «мало на остатке» (0 = не отслеживается)
 }
 
 /** Данные для создания/обновления товара (без id и date_added). */
@@ -22,6 +23,7 @@ export type ItemInput = {
 	quantity: number;
 	location: string;
 	description?: string;
+	min_quantity?: number;
 };
 
 /** DDL — создание таблицы. created_by/updated_at/deleted_at — аудит и soft-delete (без FK). */
@@ -36,7 +38,8 @@ CREATE TABLE IF NOT EXISTS items (
     date_added DATE NOT NULL,
     created_by INTEGER,
     updated_at TEXT,
-    deleted_at TEXT
+    deleted_at TEXT,
+    min_quantity INTEGER NOT NULL DEFAULT 0
 );
 `;
 

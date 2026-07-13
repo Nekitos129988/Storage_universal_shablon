@@ -58,6 +58,15 @@ export const MIGRATIONS: Migration[] = [
 			if (!hasColumn(db, 'items', 'deleted_at')) db.exec('ALTER TABLE items ADD COLUMN deleted_at TEXT');
 		},
 	},
+	{
+		id: 5,
+		name: 'items.min_quantity (порог остатков)',
+		up: (db) => {
+			if (!hasColumn(db, 'items', 'min_quantity')) {
+				db.exec('ALTER TABLE items ADD COLUMN min_quantity INTEGER NOT NULL DEFAULT 0');
+			}
+		},
+	},
 ];
 
 const ENSURE_MIGRATIONS_TABLE = `

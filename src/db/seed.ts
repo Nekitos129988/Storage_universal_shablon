@@ -8,7 +8,7 @@ import { logger } from '../utils/logger.ts';
 import { getDb } from './client.ts';
 import type { Item } from './schema.ts';
 
-const SEED_ITEMS: Omit<Item, 'id' | 'created_by' | 'updated_at' | 'deleted_at'>[] = [
+const SEED_ITEMS: Omit<Item, 'id' | 'created_by' | 'updated_at' | 'deleted_at' | 'min_quantity'>[] = [
 	{
 		name: 'Ноутбук Lenovo',
 		category: 'Техника',

@@ -14,6 +14,7 @@ const itemBodySchema = t.Object({
 	quantity: t.Integer({ minimum: 0, error: 'Количество должно быть целым неотрицательным числом' }),
 	location: t.String({ minLength: 1, maxLength: 100, error: 'Местоположение обязательно (до 100 символов)' }),
 	description: t.Optional(t.String({ maxLength: 2000 })),
+	min_quantity: t.Optional(t.Integer({ minimum: 0 })),
 });
 
 /** TypeBox-схема query-параметров для списка. */
@@ -23,6 +24,7 @@ const listQuerySchema = t.Object({
 	category: t.Optional(t.String()),
 	location: t.Optional(t.String()),
 	min_quantity: t.Optional(t.String()),
+	low_stock: t.Optional(t.String()),
 	search: t.Optional(t.String()),
 	sort: t.Optional(t.String()),
 	order: t.Optional(t.String()),
