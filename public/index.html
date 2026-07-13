@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Инвентарь офиса</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <span class="brand-mark"><i class="fas fa-warehouse"></i></span>
+                <span class="d-none d-sm-inline">Инвентарь офиса</span>
+                <span class="d-inline d-sm-none">Инвентарь</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#/" id="nav-list">
+                            <i class="fas fa-list"></i>
+                            <span class="d-none d-sm-inline">Все товары</span>
+                            <span class="d-inline d-sm-none">Список</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#/add" id="nav-add">
+                            <i class="fas fa-plus"></i>
+                            <span class="d-none d-sm-inline">Добавить товар</span>
+                            <span class="d-inline d-sm-none">Добавить</span>
+                        </a>
+                    </li>
+                    <!-- Админка (только для admin) -->
+                    <li class="nav-item d-none" id="nav-admin">
+                        <a class="nav-link" href="#/admin">
+                            <i class="fas fa-users-cog"></i>
+                            <span class="d-none d-sm-inline">Админка</span>
+                        </a>
+                    </li>
+                    <!-- Текущий пользователь (вошёл) -->
+                    <li class="nav-item d-none" id="nav-user">
+                        <span class="nav-link mb-0">
+                            <i class="fas fa-user-circle"></i>
+                            <span id="nav-username"></span>
+                            <span class="badge" id="nav-role"></span>
+                        </span>
+                    </li>
+                    <li class="nav-item d-none" id="nav-logout">
+                        <button type="button" class="btn btn-link nav-link" id="logout-btn">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span class="d-none d-sm-inline">Выход</span>
+                        </button>
+                    </li>
+                    <!-- Гость -->
+                    <li class="nav-item d-none" id="nav-login">
+                        <a class="nav-link" href="#/login">
+                            <i class="fas fa-sign-in-alt"></i>
+                            <span class="d-none d-sm-inline">Вход</span>
+                        </a>
+                    </li>
+                    <li class="nav-item d-none" id="nav-register">
+                        <a class="nav-link" href="#/register">
+                            <i class="fas fa-user-plus"></i>
+                            <span class="d-none d-sm-inline">Регистрация</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Контейнер для flash-сообщений -->
+    <div class="flash-messages" id="flash-container"></div>
+
+    <div class="container mt-3 mt-sm-4" id="app"></div>
+
+    <!-- Модальное окно подтверждения удаления -->
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-trash-alt me-2"></i>Удаление товара</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-muted">Вы уверены, что хотите удалить этот товар? Действие нельзя отменить.</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-save" id="confirm-delete" style="background:var(--danger);border-color:var(--danger);"><i class="fas fa-trash me-1"></i> Удалить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/app.js"></script>
+</body>
+</html>

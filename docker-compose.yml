@@ -1,0 +1,20 @@
+# Локальный production-запуск: docker compose up -d
+# Обязательные секреты передаются через окружение (например, через .env рядом):
+#   ADMIN_PASSWORD, SESSION_SECRET
+services:
+  app:
+    build: .
+    container_name: inventory
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - HOST=0.0.0.0
+      - PORT=3000
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?задайте ADMIN_PASSWORD}
+      - SESSION_SECRET=${SESSION_SECRET:?задайте SESSION_SECRET}
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+    volumes:
+      # БД SQLite — на хост, чтобы сохранялась между перезапусками контейнера.
+      - ./data:/app/data
+    restart: unless-stopped

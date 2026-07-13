@@ -1,0 +1,34 @@
+# Зависимости
+node_modules/
+
+# Сборка
+dist/
+build/
+
+# Окружение
+.env
+.env.local
+.env.*.local
+
+# База данных (рабочая копия генерируется из шаблона/сидом)
+data/database.db
+data/database.db-journal
+data/database.db-shm
+data/database.db-wal
+**/database.db
+**/database.db-journal
+**/database.db-shm
+**/database.db-wal
+
+# IDE / агентские артефакты
+.zcode/
+.vscode/
+.idea/
+
+# Логи
+*.log
+logs/
+
+# ОС
+.DS_Store
+Thumbs.db
