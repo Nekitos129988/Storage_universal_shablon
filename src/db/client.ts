@@ -9,6 +9,7 @@ import { Database } from 'bun:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { config } from '../config.ts';
+import { runMigrations } from './migrations.ts';
 import {
 	CREATE_CATEGORIES_TABLE_SQL,
 	CREATE_INDEXES_SQL,
@@ -48,8 +49,11 @@ export function getDb(): Database {
 	db.exec(CREATE_USERS_TABLE_SQL);
 	db.exec(CREATE_USERS_INDEX_SQL);
 
-	// Миграция справочников: для существующей БД заполняем категории/локации
-	// из уникальных значений items. На свежей БД здесь 0 строк в items.
+	// Schema-эволюция — через каркас миграций (идемпотентно, см. migrations.ts).
+	runMigrations(db);
+
+	// Runtime self-heal (data-sync, не схема): наполняем справочники из items
+	// для существующей БД. На свежей БД items пуст.
 	const { catN } = db.prepare('SELECT COUNT(*) as catN FROM categories').get() as { catN: number };
 	if (catN === 0) {
 		db.exec('INSERT INTO categories(name) SELECT DISTINCT category FROM items');
@@ -59,33 +63,11 @@ export function getDb(): Database {
 		db.exec('INSERT INTO locations(name) SELECT DISTINCT location FROM items');
 	}
 
-	// Миграция FTS: для уже существующей БД (items заполнен, а items_fts пуст)
-	// перестраиваем полнотекстовый индекс из источника. На свежей БД здесь 0 строк.
+	// Runtime self-heal: перестраиваем полнотекстовый индекс, если items заполнен, а items_fts пуст.
 	const { ftsN } = db.prepare('SELECT COUNT(*) as ftsN FROM items_fts').get() as { ftsN: number };
 	const { itemsN } = db.prepare('SELECT COUNT(*) as itemsN FROM items').get() as { itemsN: number };
 	if (itemsN > 0 && ftsN === 0) {
 		db.exec("INSERT INTO items_fts(items_fts) VALUES ('rebuild')");
-	}
-
-	// Миграция: для уже существующей БД CREATE TABLE IF NOT EXISTS не добавит
-	// колонку status — проверяем и при необходимости ALTER.
-	// Существующим аккаунтам ставим 'active' (они уже работают в системе).
-	const cols = db.prepare('PRAGMA table_info(users)').all() as { name: string }[];
-	if (!cols.some((c) => c.name === 'status')) {
-		db.exec(
-			"ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('pending','active'))",
-		);
-	}
-
-	// Миграция: аудит-колонки items (created_by, updated_at). Без FK — валидация на уровне приложения.
-	const itemCols = db.prepare('PRAGMA table_info(items)').all() as { name: string }[];
-	if (!itemCols.some((c) => c.name === 'created_by')) {
-		db.exec('ALTER TABLE items ADD COLUMN created_by INTEGER');
-	}
-	if (!itemCols.some((c) => c.name === 'updated_at')) {
-		db.exec('ALTER TABLE items ADD COLUMN updated_at TEXT');
-		// Бэкфилл: для существующих записей updated_at = date_added (известное время изменения).
-		db.exec('UPDATE items SET updated_at = date_added WHERE updated_at IS NULL');
 	}
 
 	dbInstance = db;
